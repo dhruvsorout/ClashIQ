@@ -1,0 +1,129 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum FriendsStatus{
+  ACCEPTED
+  REJECTED
+  PENDING
+}
+
+enum QuestionSigns{
+  PLUS
+  MINUS
+  DIVIDE
+  MULTIPLICATION
+}
+
+enum GameMemberStatus{
+  WON
+  LOSS
+}
+
+enum GameStatus{
+  RUNNING
+  SEARCHING_FOR_PLAYER
+  OVER
+}
+
+
+model User{
+  id        String    @id        @default(uuid())
+  email     String    @unique 
+  password  String    // hash
+  username  String    @unique
+
+  rating    UserRating?
+
+  gameMember      GameMember[]
+
+  receiver        Friends[]   @relation("receiver")
+  sender          Friends[]   @relation("sender")
+
+  answers      QuestionAnswer[]
+}
+
+model Game{
+  id          String    @id      @default(uuid())
+  timeLimit   Int
+  startedAt   DateTime
+  endedAt     DateTime  
+
+  status      GameStatus
+
+  gameMember      GameMember[]
+
+  questions        Question[]
+
+  answers   QuestionAnswer[]
+}
+
+model Question{
+  id          String        @id     @default(uuid())
+  gameId      String
+  game        Game          @relation(references: [id], fields: [gameId])
+
+  systemAnswer      Int
+  operation1  Int
+  operation2  Int
+  sign        QuestionSigns  
+
+  answers   QuestionAnswer[]
+}
+
+model QuestionAnswer{
+  id          String        @id     @default(uuid())
+
+  questionId  String
+  question    Question      @relation(references: [id], fields: [questionId])
+
+  answer      Int
+
+  gameId      String
+  game        Game        @relation(references: [id], fields: [gameId])
+
+  userId      String
+  user        User        @relation(references: [id], fields: [userId])
+}
+
+model UserRating{
+  id        String      @id      @default(uuid())
+  userId    String      @unique
+  
+  user      User        @relation(references: [id], fields: [userId])
+}
+
+model GameMember{
+  id        String      @id       @default(uuid())
+
+  status    GameMemberStatus
+
+  gameId    String
+  game      Game        @relation(references: [id], fields: [gameId])
+  
+  userId    String
+  user      User        @relation(references: [id], fields: [userId])
+
+}
+
+model Friends{
+  id            String      @id       @default(uuid())
+
+  receiverId    String
+  receiver      User        @relation("receiver", references: [id], fields: [receiverId])
+
+  senderId      String
+  sender        User        @relation("sender", references: [id], fields: [senderId])
+
+  friendStatus    FriendsStatus      @default(PENDING)
+}
