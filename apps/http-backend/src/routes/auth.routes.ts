@@ -2,15 +2,16 @@ import { Router } from "express";
 import { StatusCodes } from "http-status-codes";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import "dotenv/config";
 
 import { loginSchema, registerSchema, zodErrorMessage } from "@ClashIQ/common";
 import { db } from "@ClashIQ/db";
+import { config } from "@ClashIQ/config";
+
 import { authMiddleware } from "../middleware/auth.middleware.js";
 
 export const authRouter: Router = Router();
 
-const JWT_SECRET = process.env.JWT_SECRET!;
+const JWT_SECRET = config.jwtSecret;
 
 
 authRouter.post("/register", async (req, res) => {

@@ -1,8 +1,9 @@
+import { config } from "@ClashIQ/config";
 import { NextFunction, Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import jwt, { JwtPayload } from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET!;
+const JWT_SECRET = config.jwtSecret;
 
 export const authMiddleware = async(req: Request, res: Response, next: NextFunction) => {
     try{
