@@ -109,10 +109,22 @@ importers:
 
   apps/ws-backend:
     dependencies:
+      '@ClashIQ/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@ClashIQ/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      jsonwebtoken:
+        specifier: ^9.0.3
+        version: 9.0.3
       ws:
         specifier: ^8.21.3
         version: 8.21.3
     devDependencies:
+      '@types/jsonwebtoken':
+        specifier: ^9.0.10
+        version: 9.0.10
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1

@@ -1,5 +1,5 @@
 {
-  "name": "ws-backend",
+  "name": "@ClashIQ/ws-backend",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -9,5 +9,15 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "@ClashIQ/config": "workspace:*",
+    "@ClashIQ/db": "workspace:*",
+    "jsonwebtoken": "^9.0.3",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/ws": "^8.18.1"
+  }
 }
