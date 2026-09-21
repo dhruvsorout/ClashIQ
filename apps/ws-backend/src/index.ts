@@ -176,17 +176,15 @@ wss.on("connection", async (ws: ExtendedWs, req) => {
 
             currentQuestions.set(key, currentQuestionIndex + 1);
 
-            existingGame.members.forEach((mem) => {
-                mem.ws.send(
-                    JSON.stringify({
-                        type: "QUESTION",
-                        payload: {
-                            gameId: existingGame.id,
-                            question: nextQuestion,
-                        },
-                    }),
-                )
-            });
+            ws.send(
+                JSON.stringify({
+                    type: "QUESTION",
+                    payload: {
+                        gameId: existingGame.id,
+                        question: nextQuestion,
+                    },
+                }),
+            )
         }
     });
 })
