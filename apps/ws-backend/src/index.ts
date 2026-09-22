@@ -110,9 +110,10 @@ wss.on("connection", async (ws: ExtendedWs, req) => {
                 ws
             });
 
-            currentGameFetched.questions = generateQuestion();
+            const questions = generateQuestion();
+            currentGameFetched.questions = questions;
 
-            allQuestions.set(runningGame.id, currentGameFetched.questions);
+            allQuestions.set(runningGame.id, questions);
 
             currentGameFetched.status = "RUNNING";
 
@@ -169,7 +170,7 @@ wss.on("connection", async (ws: ExtendedWs, req) => {
             }
 
             const key = `game: ${existingGame.id}-user:${user.id}-q:${existingQuestion.id}`;
-            const currentQuestionIndex = currentQuestions.get(key)!;
+            const currentQuestionIndex = currentQuestions.get(key) ?? 0;
             const storedQuestions = allQuestions.get(existingGame.id)!;
 
             const nextQuestion = storedQuestions[currentQuestionIndex + 1]; 
