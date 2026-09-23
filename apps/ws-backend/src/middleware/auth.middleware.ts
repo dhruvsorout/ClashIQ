@@ -1,5 +1,5 @@
 import jwt, { JwtPayload } from "jsonwebtoken";
-import type { IncomingMessage } from "node:http";
+import type { IncomingMessage } from "http";
 
 import { config } from "@ClashIQ/config";
 
