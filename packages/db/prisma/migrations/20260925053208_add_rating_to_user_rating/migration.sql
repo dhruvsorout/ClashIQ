@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "UserRating" ADD COLUMN     "rating" INTEGER NOT NULL DEFAULT 1000;
