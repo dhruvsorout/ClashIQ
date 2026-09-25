@@ -1,6 +1,10 @@
 import type {
   ApiResponse,
+  FriendItem,
+  FriendRecord,
+  GameDetail,
   GameHistoryItem,
+  PublicUser,
   UserProfile,
   UserStats,
 } from "./types";
@@ -20,7 +24,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const json = (await res.json().catch(() => ({}))) as ApiResponse<T>;
 
   if (!res.ok) {
-    throw new Error(json.message ?? `Request failed with status ${res.status}`);
+    const errorMsg =
+      json.message ??
+      (json.errors && json.errors.length > 0 ? json.errors.join(", ") : null) ??
+      `Request failed with status ${res.status}`;
+    throw new Error(errorMsg);
   }
 
   return json.data;
@@ -54,16 +62,26 @@ export async function getAuthMe(token: string) {
 // ─── User Profile & Statistics Endpoints ─────────────────────────────────────
 
 export async function getUserProfile(token: string) {
-  return request<{ user: UserProfile }>("/api/v1/user/me", {
+  return request<{ user: UserProfile }>("/api/v1/users/me", {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
     },
+  });
+}
+
+export async function updateUserProfile(token: string, data: { username: string }) {
+  return request<{ user: UserProfile }>("/api/v1/users/me", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
   });
 }
 
 export async function getUserStats(token: string) {
-  return request<{ stats: UserStats }>("/api/v1/user/me/stats", {
+  return request<{ stats: UserStats }>("/api/v1/users/me/stats", {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -71,10 +89,93 @@ export async function getUserStats(token: string) {
   });
 }
 
-// ─── Game History Endpoints ──────────────────────────────────────────────────
+export async function searchUsers(token: string, query: string) {
+  return request<{ users: PublicUser[] }>(`/api/v1/users/search?q=${encodeURIComponent(query)}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function getUserById(token: string, userId: string) {
+  return request<{ user: PublicUser }>(`/api/v1/users/${userId}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+// ─── Friends Endpoints ───────────────────────────────────────────────────────
+
+export async function getFriends(token: string) {
+  return request<{ friends: FriendItem[] }>("/api/v1/friends", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function getFriendRequests(token: string) {
+  return request<{ requests: FriendRecord[] }>("/api/v1/friends/requests", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function sendFriendRequest(token: string, userId: string) {
+  return request<{ request: FriendRecord }>(`/api/v1/friends/${userId}/request`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function acceptFriendRequest(token: string, userId: string) {
+  return request<{ friendship: FriendRecord }>(`/api/v1/friends/${userId}/accept`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function rejectFriendRequest(token: string, userId: string) {
+  return request<{ friendship: FriendRecord }>(`/api/v1/friends/${userId}/reject`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function removeFriend(token: string, userId: string) {
+  return request<{ message: string }>(`/api/v1/friends/${userId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+// ─── Game History & Details Endpoints ────────────────────────────────────────
 
 export async function getGameHistory(token: string) {
-  return request<{ history: GameHistoryItem[] }>("/api/v1/game/history", {
+  return request<{ games: GameHistoryItem[] }>("/api/v1/games/history", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function getGameDetail(token: string, gameId: string) {
+  return request<{ game: GameDetail }>(`/api/v1/games/${gameId}`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,

@@ -17,6 +17,8 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   refreshUser: () => Promise<void>;
+  updateUserRating: (newRating: number) => void;
+  updateUser: (updatedUser: Partial<UserProfile>) => void;
   logout: () => void;
 }
 
@@ -27,6 +29,8 @@ export const AuthContext = createContext<AuthContextValue>({
   login: async () => {},
   register: async () => {},
   refreshUser: async () => {},
+  updateUserRating: () => {},
+  updateUser: () => {},
   logout: () => {},
 });
 
@@ -35,9 +39,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Refresh user data (including live rating)
+  // Refresh user data from backend (including live rating)
   const refreshUser = useCallback(async () => {
-    const currentToken = token ?? (typeof window !== "undefined" ? localStorage.getItem("clashiq_token") : null);
+    const currentToken =
+      token ?? (typeof window !== "undefined" ? localStorage.getItem("clashiq_token") : null);
     if (!currentToken) return;
 
     try {
@@ -47,6 +52,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Ignore if temporarily unreachable
     }
   }, [token]);
+
+  // Synchronously update rating in client state
+  const updateUserRating = useCallback((newRating: number) => {
+    setUser((prev) => (prev ? { ...prev, rating: newRating } : prev));
+  }, []);
+
+  // Synchronously update user details in client state
+  const updateUser = useCallback((updatedUser: Partial<UserProfile>) => {
+    setUser((prev) => (prev ? { ...prev, ...updatedUser } : prev));
+  }, []);
 
   // Rehydrate on mount
   useEffect(() => {
@@ -123,6 +138,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         refreshUser,
+        updateUserRating,
+        updateUser,
         logout,
       }}
     >

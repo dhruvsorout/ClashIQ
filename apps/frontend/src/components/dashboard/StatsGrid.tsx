@@ -46,12 +46,12 @@ export function StatsGrid({ stats }: { stats: UserStats | null }) {
       </div>
 
       {/* Accuracy Card */}
-      <div className="surface-card p-5 border-l-4 border-l-[#3B82F6]">
+      <div className="surface-card p-5 border-l-4 border-l-[#2563EB]">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#94A3B8]">
             Accuracy
           </span>
-          <TargetIcon className="w-4 h-4 text-[#3B82F6]" />
+          <TargetIcon className="w-4 h-4 text-[#93C5FD]" />
         </div>
         <div className="font-mono font-bold text-2xl sm:text-3xl text-[#93C5FD] mb-1">
           {accuracy}%
@@ -67,7 +67,7 @@ export function StatsGrid({ stats }: { stats: UserStats | null }) {
           <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#94A3B8]">
             Battles
           </span>
-          <UsersIcon className="w-4 h-4 text-[#8B5CF6]" />
+          <UsersIcon className="w-4 h-4 text-[#C4B5FD]" />
         </div>
         <div className="font-mono font-bold text-2xl sm:text-3xl text-[#C4B5FD] mb-1">
           {totalGames}

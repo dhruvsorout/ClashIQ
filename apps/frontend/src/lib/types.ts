@@ -107,6 +107,13 @@ export interface UserProfile {
   rating: number | null;
 }
 
+export interface PublicUser {
+  id: string;
+  email: string;
+  username: string;
+  rating: number | null;
+}
+
 export interface UserStats {
   totalGames: number;
   gamesWon: number;
@@ -116,6 +123,24 @@ export interface UserStats {
   correctAnswers: number;
   accuracy: number;
   rating: number;
+}
+
+export interface FriendUserInfo {
+  id: string;
+  username: string;
+  email: string;
+}
+
+export interface FriendItem {
+  friendshipId: string;
+  friend: FriendUserInfo;
+}
+
+export interface FriendRecord {
+  id: string;
+  friendStatus: "PENDING" | "ACCEPTED" | "REJECTED";
+  sender: FriendUserInfo;
+  receiver: FriendUserInfo;
 }
 
 export interface GameHistoryOpponent {
@@ -134,8 +159,48 @@ export interface GameHistoryItem {
   opponents: GameHistoryOpponent[];
 }
 
+export interface GameDetailQuestion {
+  id: string;
+  operation1: number;
+  operation2: number;
+  sign: QuestionSign;
+  systemAnswer: number;
+}
+
+export interface GameDetailAnswer {
+  id: string;
+  answer: number;
+  questionId: string;
+  userId: string;
+  user: {
+    id: string;
+    username: string;
+  };
+}
+
+export interface GameDetailMember {
+  id: string;
+  status: "WON" | "LOSS";
+  user: {
+    id: string;
+    username: string;
+  };
+}
+
+export interface GameDetail {
+  id: string;
+  status: "OVER" | "RUNNING" | "SEARCHING_FOR_PLAYER";
+  timeLimit: number;
+  startedAt: string;
+  endedAt: string;
+  gameMember: GameDetailMember[];
+  questions: GameDetailQuestion[];
+  answers: GameDetailAnswer[];
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data: T;
   message?: string;
+  errors?: string[];
 }

@@ -4,7 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
-import { EyeIcon, EyeOffIcon, SwordsIcon } from "@/components/ui/Icons";
+import {
+  ArrowLeftIcon,
+  CrossIcon,
+  EyeIcon,
+  EyeOffIcon,
+  SwordsIcon,
+} from "@/components/ui/Icons";
 
 type AuthTab = "login" | "register";
 
@@ -67,35 +73,35 @@ export default function AuthPage() {
       }
       router.replace("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Authentication failed");
+      setError(err instanceof Error ? err.message : "Authentication failed.");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0F17] flex flex-col justify-center items-center px-4 py-12">
+    <div className="min-h-screen bg-[#0B0E14] flex flex-col justify-center items-center px-4 py-12">
       {/* Brand Header */}
-      <Link href="/" className="flex items-center gap-2 mb-8 group">
-        <div className="w-8 h-8 bg-[#2563EB] text-white flex items-center justify-center font-bold text-base rounded-sm">
+      <Link href="/" className="flex items-center gap-2 mb-8 group focus-visible:outline-none">
+        <div className="w-8 h-8 bg-[#2563EB] text-white flex items-center justify-center font-bold text-base rounded">
           <SwordsIcon className="w-5 h-5" />
         </div>
         <span className="font-display font-bold text-2xl tracking-tight text-[#F8FAFC]">
-          Clash<span className="text-[#3B82F6]">IQ</span>
+          Clash<span className="text-[#F59E0B]">IQ</span>
         </span>
       </Link>
 
       {/* Auth Card Container */}
-      <div className="surface-card w-full max-w-md p-6 sm:p-8">
+      <div className="surface-card w-full max-w-md p-6 sm:p-8 border-[#2E3A4E]">
         {/* Tab Toggle */}
-        <div className="grid grid-cols-2 bg-[#1A2234] border border-[#242F45] p-1 rounded mb-6">
+        <div className="grid grid-cols-2 bg-[#1B2332] border border-[#2A364C] p-1 rounded mb-6 font-mono text-xs">
           <button
             type="button"
             onClick={() => {
               setTab("login");
               resetForm();
             }}
-            className={`py-2 text-xs font-semibold rounded font-mono transition-colors ${
+            className={`py-2 font-bold rounded transition-colors ${
               tab === "login"
                 ? "bg-[#2563EB] text-white"
                 : "text-[#94A3B8] hover:text-[#F8FAFC]"
@@ -109,7 +115,7 @@ export default function AuthPage() {
               setTab("register");
               resetForm();
             }}
-            className={`py-2 text-xs font-semibold rounded font-mono transition-colors ${
+            className={`py-2 font-bold rounded transition-colors ${
               tab === "register"
                 ? "bg-[#2563EB] text-white"
                 : "text-[#94A3B8] hover:text-[#F8FAFC]"
@@ -124,17 +130,24 @@ export default function AuthPage() {
           <h2 className="font-display font-bold text-xl text-[#F8FAFC]">
             {tab === "login" ? "Enter the Arena" : "Create Competitor Account"}
           </h2>
-          <p className="text-xs text-[#94A3B8] mt-1">
+          <p className="text-xs text-[#94A3B8] mt-1 font-sans">
             {tab === "login"
-              ? "Access your ranked profile, statistics, and live match pool."
-              : "Establish your starting 1000 ELO rating and join 1v1 battles."}
+              ? "Access your ranked profile, match history, and live matchmaking."
+              : "Establish your starting 1000 Elo rating and join real-time arithmetic battles."}
           </p>
         </div>
 
         {/* Error Notification */}
         {error && (
-          <div className="mb-6 p-3 bg-[#7F1D1D]/30 border border-[#DC2626] rounded text-xs text-[#FCA5A5] font-mono">
-            {error}
+          <div className="mb-6 p-3 bg-[#7F1D1D]/40 border border-[#DC2626] rounded text-xs text-[#FCA5A5] font-mono flex items-center justify-between">
+            <span>{error}</span>
+            <button
+              onClick={() => setError(null)}
+              className="text-[#FCA5A5] hover:opacity-75"
+              aria-label="Dismiss error"
+            >
+              <CrossIcon className="w-3.5 h-3.5" />
+            </button>
           </div>
         )}
 
@@ -166,12 +179,12 @@ export default function AuthPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="input-solid h-11 pr-10"
+                className="input-solid h-11 pr-10 font-mono"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((s) => !s)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#F8FAFC]"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#F8FAFC] transition-colors"
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? (
@@ -194,19 +207,20 @@ export default function AuthPage() {
             className="btn btn-primary w-full h-11 text-sm font-mono font-bold mt-2"
           >
             {isLoading
-              ? "PROCESSING..."
+              ? "AUTHENTICATING..."
               : tab === "login"
               ? "LOG IN TO ARENA"
               : "CREATE ACCOUNT & ENTER"}
           </button>
         </form>
 
-        <div className="mt-6 pt-4 border-t border-[#1E293B] text-center">
+        <div className="mt-6 pt-4 border-t border-[#222B3B] text-center">
           <Link
             href="/"
-            className="text-xs font-mono text-[#94A3B8] hover:text-[#F8FAFC] transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-mono text-[#94A3B8] hover:text-[#F8FAFC] transition-colors"
           >
-            ← Return to Homepage
+            <ArrowLeftIcon className="w-3 h-3" />
+            <span>Return to Homepage</span>
           </Link>
         </div>
       </div>

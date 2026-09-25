@@ -43,7 +43,7 @@ export default function RootLayout({
       lang="en"
       className={`${spaceGrotesk.variable} ${plusJakartaSans.variable} ${jetbrainsMono.variable}`}
     >
-      <body className="min-h-screen bg-[#0B0F17] text-[#F8FAFC] font-sans antialiased selection:bg-[#3B82F6] selection:text-white flex flex-col">
+      <body className="min-h-screen bg-[#0B0E14] text-[#F8FAFC] font-sans antialiased selection:bg-[#F59E0B] selection:text-black flex flex-col">
         <AuthProvider>
           <WebSocketProvider>{children}</WebSocketProvider>
         </AuthProvider>

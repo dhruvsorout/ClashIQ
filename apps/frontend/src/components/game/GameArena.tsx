@@ -2,9 +2,17 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { useWebSocket } from "@/hooks/useWebSocket";
-import { ClockIcon, SwordsIcon, TrophyIcon } from "../ui/Icons";
+import {
+  ClockIcon,
+  SwordsIcon,
+  TrophyIcon,
+  CheckIcon,
+  CrossIcon,
+  ArrowRightIcon,
+} from "../ui/Icons";
 
 const SIGN_SYMBOLS: Record<string, string> = {
   PLUS: "+",
@@ -27,16 +35,21 @@ function QuestionInputForm({
   const [val, setVal] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const num = parseInt(val.trim(), 10);
     if (!isNaN(num)) {
       onSubmit(num);
+      setVal("");
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-sm">
+    <form onSubmit={handleSubmit} className="w-full max-w-sm mx-auto">
       <div className="flex gap-2">
         <input
           ref={inputRef}
@@ -45,26 +58,26 @@ function QuestionInputForm({
           pattern="[0-9\-]*"
           value={val}
           onChange={(e) => setVal(e.target.value)}
-          placeholder="Your answer"
+          placeholder="Answer"
           autoFocus
-          className={`input-solid font-mono font-bold text-center text-2xl h-14 ${
+          className={`input-solid font-mono font-bold text-center text-3xl h-16 transition-colors ${
             isCorrect
-              ? "border-[#10B981] bg-[#064E3B]/20 text-[#6EE7B7]"
+              ? "border-[#10B981] bg-[#064E3B]/30 text-[#6EE7B7]"
               : isWrong
-              ? "border-[#EF4444] bg-[#7F1D1D]/20 text-[#FCA5A5]"
-              : ""
+              ? "border-[#EF4444] bg-[#7F1D1D]/30 text-[#FCA5A5]"
+              : "border-[#2E3A4E]"
           }`}
         />
         <button
           type="submit"
           disabled={!val.trim()}
-          className="btn btn-primary h-14 px-6 font-mono font-bold text-base"
+          className="btn btn-primary h-16 px-6 font-mono font-bold text-base tracking-wider shrink-0"
         >
-          SUBMIT
+          ENTER
         </button>
       </div>
-      <p className="text-[11px] text-[#64748B] font-mono mt-2">
-        Press <kbd className="px-1.5 py-0.5 bg-[#1A2234] border border-[#242F45] rounded text-[#94A3B8]">Enter</kbd> to submit instantly
+      <p className="text-[11px] text-[#64748B] font-mono mt-2 text-center">
+        Type integers only • Press <kbd className="px-1.5 py-0.5 bg-[#1B2332] border border-[#2A364C] rounded text-[#94A3B8]">Enter</kbd> to submit
       </p>
     </form>
   );
@@ -84,9 +97,10 @@ export function GameArena({ gameId }: { gameId: string }) {
     startMatchmaking,
   } = useWebSocket();
 
-  const [timeLeft, setTimeLeft] = useState(120);
+  const [timeLeft, setTimeLeft] = useState(() => activeGame?.timeLimit ?? 120);
+  const [showForfeitModal, setShowForfeitModal] = useState(false);
 
-  // Derived feedback state from context without useEffect setState!
+  // Derived feedback state
   const feedbackState: "idle" | "correct" | "wrong" = !lastAnswerResult
     ? "idle"
     : lastAnswerResult.correct
@@ -123,11 +137,10 @@ export function GameArena({ gameId }: { gameId: string }) {
     router.push("/dashboard");
   };
 
-  const handleLeave = () => {
-    if (confirm("Are you sure you want to forfeit this match?")) {
-      leaveGame(gameId);
-      router.push("/dashboard");
-    }
+  const handleConfirmForfeit = () => {
+    leaveGame(gameId);
+    setShowForfeitModal(false);
+    router.push("/dashboard");
   };
 
   const formatTimer = (seconds: number) => {
@@ -136,24 +149,40 @@ export function GameArena({ gameId }: { gameId: string }) {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const opponentName = activeGame?.opponent.username ?? "Opponent";
+  const opponentName = activeGame?.opponent?.username ?? "Opponent";
   const questionNumber = currentQuestion?.questionNumber ?? 1;
   const totalQuestions = currentQuestion?.totalQuestions ?? 10;
-  const progressPercent = Math.min(100, Math.round(((questionNumber - 1) / totalQuestions) * 100));
+  const progressPercent = Math.min(
+    100,
+    Math.round(((questionNumber - 1) / totalQuestions) * 100)
+  );
 
-  // ─── GAME OVER OVERLAY SCREEN ───────────────────────────────────────────────
+  // ─── GAME OVER PRESENTATION SCREEN ─────────────────────────────────────────
   if (gameOverResult && gameOverResult.gameId === gameId) {
     const isWinner = gameOverResult.userResult === "WON";
+    const isLoss = gameOverResult.userResult === "LOSS";
     const isForfeit = gameOverResult.reason === "FORFEIT";
     const delta = gameOverResult.ratingChange;
 
     return (
-      <div className="max-w-xl mx-auto py-12 px-4 sm:px-6">
+      <div className="max-w-2xl mx-auto py-12 px-4 sm:px-6 flex-1 flex flex-col justify-center">
         <div
-          className="surface-card p-8 border-2 text-center relative overflow-hidden"
-          style={{ borderColor: isWinner ? "#10B981" : "#EF4444" }}
+          className={`surface-card p-8 sm:p-10 border-2 text-center relative overflow-hidden ${
+            isWinner
+              ? "border-[#10B981] bg-[#141A25]"
+              : isLoss
+              ? "border-[#EF4444] bg-[#141A25]"
+              : "border-[#F59E0B] bg-[#141A25]"
+          }`}
         >
-          <div className="w-16 h-16 mx-auto mb-4 bg-[#1A2234] border border-[#242F45] flex items-center justify-center rounded">
+          {/* Result Icon */}
+          <div
+            className={`w-16 h-16 mx-auto mb-4 border flex items-center justify-center rounded ${
+              isWinner
+                ? "bg-[#064E3B] border-[#059669] text-[#10B981]"
+                : "bg-[#7F1D1D] border-[#DC2626] text-[#EF4444]"
+            }`}
+          >
             {isWinner ? (
               <TrophyIcon className="w-8 h-8 text-[#F59E0B]" />
             ) : (
@@ -162,37 +191,37 @@ export function GameArena({ gameId }: { gameId: string }) {
           </div>
 
           <h2
-            className={`font-display font-bold text-3xl mb-1 ${
-              isWinner ? "text-[#10B981]" : "text-[#EF4444]"
+            className={`font-display font-extrabold text-3xl sm:text-4xl tracking-tight mb-2 ${
+              isWinner ? "text-[#10B981]" : isLoss ? "text-[#EF4444]" : "text-[#F59E0B]"
             }`}
           >
-            {isWinner ? "VICTORY" : "DEFEAT"}
+            {isWinner ? "VICTORY" : isLoss ? "DEFEAT" : "MATCH DRAW"}
           </h2>
 
-          <p className="text-xs font-mono uppercase tracking-wider text-[#94A3B8] mb-6">
+          <p className="text-xs font-mono uppercase tracking-wider text-[#94A3B8] mb-8">
             {isForfeit
               ? isWinner
-                ? "Opponent forfeited match"
-                : "You forfeited the match"
+                ? "Opponent disconnected / forfeited"
+                : "Match terminated by forfeit"
               : gameOverResult.reason === "TIME_LIMIT"
-              ? "Time Limit Expired"
-              : "All 10 Questions Completed"}
+              ? "120-Second Time Cap Expired"
+              : "All 10 Mathematical Equations Solved"}
           </p>
 
-          {/* Rating Change Display */}
-          <div className="surface-elevated p-4 max-w-xs mx-auto mb-8 rounded">
-            <div className="text-[11px] font-mono text-[#94A3B8] uppercase tracking-wider mb-1">
-              Rating Update
+          {/* Rating Delta Box */}
+          <div className="surface-elevated p-5 max-w-sm mx-auto mb-8 rounded border border-[#2E3A4E]">
+            <div className="text-[11px] font-mono text-[#94A3B8] uppercase tracking-wider mb-2 font-semibold">
+              Live Rating Adjusted
             </div>
-            <div className="flex items-center justify-center gap-3 font-mono font-bold">
-              <span className="text-2xl text-[#F8FAFC]">
+            <div className="flex items-center justify-center gap-4 font-mono font-bold">
+              <span className="text-3xl text-[#F8FAFC]">
                 {gameOverResult.newRating} ELO
               </span>
               <span
-                className={`text-sm px-2 py-0.5 rounded ${
+                className={`text-sm font-mono font-bold px-2.5 py-1 rounded border ${
                   delta >= 0
-                    ? "bg-[#064E3B] text-[#6EE7B7]"
-                    : "bg-[#7F1D1D] text-[#FCA5A5]"
+                    ? "bg-[#064E3B] border-[#059669] text-[#6EE7B7]"
+                    : "bg-[#7F1D1D] border-[#DC2626] text-[#FCA5A5]"
                 }`}
               >
                 {delta >= 0 ? `+${delta}` : delta}
@@ -200,19 +229,33 @@ export function GameArena({ gameId }: { gameId: string }) {
             </div>
           </div>
 
+          {/* Competitors Summary */}
+          <div className="text-xs font-mono text-[#94A3B8] mb-8 pb-6 border-b border-[#222B3B] flex items-center justify-center gap-4">
+            <span className="text-[#F8FAFC] font-bold">{user?.username}</span>
+            <span className="text-[#64748B]">vs</span>
+            <span className="text-[#F8FAFC] font-bold">{opponentName}</span>
+          </div>
+
           {/* Actions */}
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center font-mono">
             <button
               onClick={handlePlayAgain}
-              className="btn btn-primary text-sm px-6"
+              className="btn btn-primary text-sm px-6 h-12 font-bold"
             >
-              Play Again
+              <span>Play Next Match</span>
+              <ArrowRightIcon className="w-4 h-4 ml-1" />
             </button>
+            <Link
+              href={`/games/${gameId}`}
+              className="btn btn-secondary text-sm px-6 h-12"
+            >
+              Review Match Details
+            </Link>
             <button
               onClick={handleReturnDashboard}
-              className="btn btn-secondary text-sm px-6"
+              className="btn btn-outline text-sm px-5 h-12"
             >
-              Return to Dashboard
+              Dashboard
             </button>
           </div>
         </div>
@@ -222,58 +265,62 @@ export function GameArena({ gameId }: { gameId: string }) {
 
   // ─── ACTIVE GAMEPLAY SCREEN ────────────────────────────────────────────────
   return (
-    <div className="max-w-3xl mx-auto py-6 px-4 sm:px-6 flex flex-col min-h-[calc(100vh-56px)]">
+    <div className="max-w-3xl mx-auto py-6 px-4 sm:px-6 flex flex-col flex-1 w-full justify-between">
       {/* Top Combat Header */}
-      <div className="surface-card p-4 mb-6">
+      <div className="surface-card p-4 sm:p-5 mb-6 border-[#2E3A4E]">
         <div className="flex items-center justify-between gap-4 mb-3">
           {/* Player 1 (You) */}
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 bg-[#3B82F6] rounded-full" />
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-[#1B2332] border border-[#3B4B68] rounded flex items-center justify-center font-mono font-bold text-xs text-[#FCD34D]">
+              {user?.username?.slice(0, 2).toUpperCase() ?? "YOU"}
+            </div>
             <div>
               <div className="text-xs font-bold text-[#F8FAFC]">
                 {user?.username ?? "You"}
               </div>
-              <div className="text-[10px] font-mono text-[#94A3B8]">
-                YOU
+              <div className="text-[10px] font-mono text-[#10B981] font-bold">
+                COMPETITOR [YOU]
               </div>
             </div>
           </div>
 
           {/* Center Timer */}
           <div
-            className={`flex items-center gap-1.5 px-3 py-1 rounded font-mono font-bold text-sm ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded font-mono font-bold text-sm ${
               timeLeft <= 20
                 ? "bg-[#7F1D1D] text-[#FCA5A5] border border-[#DC2626] animate-pulse"
-                : "bg-[#1A2234] text-[#F8FAFC] border border-[#334155]"
+                : "bg-[#1B2332] text-[#F8FAFC] border border-[#2E3A4E]"
             }`}
           >
-            <ClockIcon className="w-3.5 h-3.5 text-[#94A3B8]" />
+            <ClockIcon className="w-4 h-4 text-[#F59E0B]" />
             <span>{formatTimer(timeLeft)}</span>
           </div>
 
           {/* Opponent */}
-          <div className="flex items-center gap-2 text-right">
+          <div className="flex items-center gap-3 text-right">
             <div>
               <div className="text-xs font-bold text-[#F8FAFC]">
                 {opponentName}
               </div>
-              <div className="text-[10px] font-mono text-[#EF4444]">
+              <div className="text-[10px] font-mono text-[#EF4444] font-bold">
                 OPPONENT
               </div>
             </div>
-            <span className="w-2.5 h-2.5 bg-[#EF4444] rounded-full" />
+            <div className="w-9 h-9 bg-[#1B2332] border border-[#3B4B68] rounded flex items-center justify-center font-mono font-bold text-xs text-[#93C5FD]">
+              {opponentName.slice(0, 2).toUpperCase()}
+            </div>
           </div>
         </div>
 
         {/* Question Progress Bar */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-[10px] font-mono text-[#94A3B8]">
-            <span>PROGRESS: QUESTION {questionNumber} OF {totalQuestions}</span>
-            <span>{progressPercent}%</span>
+        <div className="space-y-1.5 pt-2 border-t border-[#222B3B]">
+          <div className="flex justify-between text-[11px] font-mono text-[#94A3B8]">
+            <span>EQUATION {questionNumber} OF {totalQuestions}</span>
+            <span className="font-bold text-[#F8FAFC]">{progressPercent}% COMPLETED</span>
           </div>
-          <div className="w-full bg-[#0B0F17] h-1.5 rounded-full overflow-hidden border border-[#1E293B]">
+          <div className="w-full bg-[#0B0E14] h-2 rounded overflow-hidden border border-[#222B3B]">
             <div
-              className="bg-[#3B82F6] h-full transition-all duration-300"
+              className="bg-[#2563EB] h-full transition-all duration-300"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -282,23 +329,37 @@ export function GameArena({ gameId }: { gameId: string }) {
 
       {/* Primary Mathematical Combat Arena */}
       <div
-        className={`surface-card p-8 sm:p-12 text-center flex-1 flex flex-col justify-center items-center my-auto transition-all ${
+        className={`surface-card p-8 sm:p-14 text-center flex flex-col justify-center items-center my-auto transition-all border ${
           feedbackState === "correct"
             ? "animate-correct-flash border-[#10B981]"
             : feedbackState === "wrong"
             ? "animate-wrong-shake border-[#EF4444]"
-            : "border-[#1E293B]"
+            : "border-[#2E3A4E]"
         }`}
       >
-        <span className="text-xs font-mono font-bold text-[#94A3B8] uppercase tracking-widest mb-6">
-          SPEED ARITHMETIC #{questionNumber}
-        </span>
+        <div className="flex items-center gap-2 mb-6">
+          <span className="text-xs font-mono font-bold text-[#94A3B8] uppercase tracking-widest">
+            EQUATION #{questionNumber}
+          </span>
+          {feedbackState === "correct" && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-mono text-[#6EE7B7] bg-[#064E3B] border border-[#059669] px-2 py-0.5 rounded font-bold">
+              <CheckIcon className="w-3 h-3" />
+              <span>CORRECT</span>
+            </span>
+          )}
+          {feedbackState === "wrong" && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-mono text-[#FCA5A5] bg-[#7F1D1D] border border-[#DC2626] px-2 py-0.5 rounded font-bold">
+              <CrossIcon className="w-3 h-3" />
+              <span>RETRY</span>
+            </span>
+          )}
+        </div>
 
         {/* Dominant Mathematical Expression */}
         {currentQuestion ? (
-          <div className="font-mono font-extrabold text-5xl sm:text-7xl text-[#F8FAFC] tracking-tight mb-8 select-none flex items-center justify-center gap-4">
+          <div className="font-mono font-extrabold text-5xl sm:text-7xl text-[#F8FAFC] tracking-tight mb-8 select-none flex items-center justify-center gap-4 sm:gap-6">
             <span>{currentQuestion.question.operation1}</span>
-            <span className="text-[#3B82F6] font-normal">
+            <span className="text-[#3B82F6]">
               {SIGN_SYMBOLS[currentQuestion.question.sign] ?? "+"}
             </span>
             <span>{currentQuestion.question.operation2}</span>
@@ -307,7 +368,7 @@ export function GameArena({ gameId }: { gameId: string }) {
           </div>
         ) : (
           <div className="text-sm font-mono text-[#94A3B8] mb-8 animate-pulse">
-            Loading next challenge...
+            Generating next combat equation...
           </div>
         )}
 
@@ -323,17 +384,45 @@ export function GameArena({ gameId }: { gameId: string }) {
       </div>
 
       {/* Footer controls */}
-      <div className="flex items-center justify-between pt-4 mt-auto">
+      <div className="flex items-center justify-between pt-4 mt-6 border-t border-[#222B3B]">
         <span className="text-[11px] font-mono text-[#64748B]">
-          MATCH ID: {gameId.slice(0, 8)}...
+          MATCH PROTOCOL ID: {gameId.slice(0, 8)}...
         </span>
         <button
-          onClick={handleLeave}
+          onClick={() => setShowForfeitModal(true)}
           className="text-xs font-mono text-[#EF4444] hover:underline"
         >
           Forfeit Match
         </button>
       </div>
+
+      {/* Forfeit Confirmation Modal */}
+      {showForfeitModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
+          <div className="surface-card p-6 max-w-sm w-full border-[#DC2626]">
+            <h3 className="font-display font-bold text-lg text-[#F8FAFC] mb-2">
+              Forfeit Ranked Match?
+            </h3>
+            <p className="text-xs text-[#94A3B8] font-mono mb-6 leading-relaxed">
+              Surrendering will immediately grant victory to your opponent and trigger an Elo rating deduction.
+            </p>
+            <div className="flex items-center justify-end gap-3 font-mono text-xs">
+              <button
+                onClick={() => setShowForfeitModal(false)}
+                className="btn btn-secondary py-2 px-4"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmForfeit}
+                className="btn btn-danger py-2 px-4 font-bold"
+              >
+                Confirm Forfeit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

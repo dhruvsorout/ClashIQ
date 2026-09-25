@@ -2,23 +2,25 @@
 
 @layer base {
   :root {
-    --bg-base: #0B0F17;
-    --bg-surface-1: #121824;
-    --bg-surface-2: #1A2234;
-    --bg-surface-3: #242F45;
+    --bg-base: #0B0E14;
+    --bg-subtle: #0F141D;
+    --bg-surface-1: #141A25;
+    --bg-surface-2: #1B2332;
+    --bg-surface-3: #242F44;
 
-    --border-subtle: #1E293B;
-    --border-strong: #334155;
+    --border-subtle: #1C2433;
+    --border-default: #2A364C;
+    --border-strong: #3B4B68;
     --border-focus: #3B82F6;
 
     --text-primary: #F8FAFC;
     --text-secondary: #94A3B8;
     --text-muted: #64748B;
 
-    --accent-blue: #2563EB;
-    --accent-blue-hover: #1D4ED8;
     --accent-amber: #F59E0B;
     --accent-amber-hover: #D97706;
+    --accent-blue: #2563EB;
+    --accent-blue-hover: #1D4ED8;
 
     --status-success: #10B981;
     --status-error: #EF4444;
@@ -51,13 +53,14 @@
     height: 6px;
   }
   ::-webkit-scrollbar-track {
-    background: #0B0F17;
+    background: #0B0E14;
   }
   ::-webkit-scrollbar-thumb {
-    background: #242F45;
+    background: #242F44;
+    border-radius: 2px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #334155;
+    background: #3B4B68;
   }
 }
 
@@ -77,12 +80,12 @@
 /* ─── Solid Surface Containers ─────────────────────────────────────────── */
 .surface-card {
   background-color: var(--bg-surface-1);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-default);
 }
 
 .surface-card-hover {
   background-color: var(--bg-surface-1);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-default);
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 .surface-card-hover:hover {
@@ -111,6 +114,10 @@
   user-select: none;
   white-space: nowrap;
 }
+.btn:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
 .btn:active:not(:disabled) {
   transform: translateY(1px);
 }
@@ -130,7 +137,7 @@
 
 .btn-amber {
   background-color: var(--accent-amber);
-  color: #000000;
+  color: #0A0D14;
   border: 1px solid #D97706;
   font-weight: 700;
 }
@@ -145,7 +152,7 @@
 }
 .btn-secondary:hover:not(:disabled) {
   background-color: var(--bg-surface-3);
-  border-color: #475569;
+  border-color: #4A5D7E;
 }
 
 .btn-outline {
@@ -171,7 +178,7 @@
 .input-solid {
   background-color: var(--bg-surface-2);
   color: var(--text-primary);
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border-default);
   padding: 0.625rem 0.875rem;
   border-radius: 4px;
   font-size: 0.9375rem;
@@ -196,7 +203,7 @@
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  border-radius: 2px;
+  border-radius: 3px;
   font-family: var(--font-mono);
 }
 
@@ -233,7 +240,7 @@
 /* ─── Gameplay Feedback Animations ─────────────────────────────────────── */
 @keyframes correctFlash {
   0% { border-color: #10B981; background-color: #064E3B; }
-  100% { border-color: var(--border-subtle); background-color: var(--bg-surface-1); }
+  100% { border-color: var(--border-default); background-color: var(--bg-surface-1); }
 }
 
 @keyframes wrongShake {

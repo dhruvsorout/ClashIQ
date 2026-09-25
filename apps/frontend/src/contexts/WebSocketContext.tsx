@@ -93,7 +93,7 @@ export const WebSocketContext = createContext<WebSocketContextValue>({
 });
 
 export function WebSocketProvider({ children }: { children: ReactNode }) {
-  const { token, refreshUser } = useContext(AuthContext);
+  const { token, refreshUser, updateUserRating } = useContext(AuthContext);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptsRef = useRef(0);
@@ -187,6 +187,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           case "GAME_OVER": {
             setGameOverResult(msg.payload);
             setMatchmakingState("IDLE");
+            updateUserRating(msg.payload.newRating);
             refreshUser();
             break;
           }
@@ -203,7 +204,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         console.error("[WS] Failed to parse message:", err);
       }
     };
-  }, [token, refreshUser]);
+  }, [token, refreshUser, updateUserRating]);
 
   useEffect(() => {
     connectRef.current = connect;

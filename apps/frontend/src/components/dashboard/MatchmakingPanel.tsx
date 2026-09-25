@@ -36,7 +36,7 @@ export function MatchmakingPanel() {
     if (matchmakingState === "MATCHED" && activeGame) {
       const timeout = setTimeout(() => {
         router.push(`/game/${activeGame.gameId}`);
-      }, 1200);
+      }, 1000);
 
       return () => clearTimeout(timeout);
     }
@@ -69,13 +69,13 @@ export function MatchmakingPanel() {
 
       {matchmakingState === "MATCHED" && activeGame ? (
         <div className="text-center py-4">
-          <div className="text-xs font-mono text-[#10B981] uppercase tracking-wider mb-1 font-bold">
+          <div className="text-xs font-mono text-[#10B981] uppercase tracking-wider mb-2 font-bold">
             Competitor Located
           </div>
-          <h3 className="font-display font-bold text-2xl text-[#F8FAFC] mb-2 flex items-center justify-center gap-3">
+          <h3 className="font-display font-bold text-2xl sm:text-3xl text-[#F8FAFC] mb-2 flex items-center justify-center gap-3">
             <span>YOU</span>
             <span className="text-[#64748B] text-base font-normal">VS</span>
-            <span className="text-[#3B82F6]">{activeGame.opponent.username}</span>
+            <span className="text-[#F59E0B]">{activeGame.opponent.username}</span>
           </h3>
           <p className="text-xs text-[#94A3B8] font-mono">
             Entering arena in 1 second...
@@ -84,7 +84,7 @@ export function MatchmakingPanel() {
       ) : (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4 text-left">
-            <div className="w-12 h-12 bg-[#1A2234] border border-[#242F45] text-[#3B82F6] flex items-center justify-center rounded">
+            <div className="w-12 h-12 bg-[#1B2332] border border-[#2A364C] text-[#3B82F6] flex items-center justify-center rounded">
               <SwordsIcon className="w-6 h-6 animate-pulse" />
             </div>
             <div>
@@ -92,14 +92,14 @@ export function MatchmakingPanel() {
                 Searching for 1v1 Opponent
               </h4>
               <p className="text-xs text-[#94A3B8]">
-                Scanning active pool for matching competitor...
+                Scanning active competitor pool for matching opponent...
               </p>
             </div>
           </div>
 
           <button
             onClick={cancelMatchmaking}
-            className="btn btn-secondary text-xs w-full sm:w-auto"
+            className="btn btn-secondary text-xs w-full sm:w-auto font-mono"
           >
             Cancel Matchmaking
           </button>

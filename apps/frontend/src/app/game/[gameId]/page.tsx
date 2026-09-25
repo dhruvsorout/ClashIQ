@@ -26,14 +26,14 @@ export default function GamePage({
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[#0B0F17] flex items-center justify-center font-mono text-xs text-[#94A3B8]">
+      <div className="min-h-screen bg-[#0B0E14] flex items-center justify-center font-mono text-xs text-[#94A3B8]">
         CONNECTING TO COMBAT ARENA...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0F17] flex flex-col">
+    <div className="min-h-screen bg-[#0B0E14] flex flex-col">
       <Navbar />
 
       {/* Connection warning banner if WS disconnected during active match */}
