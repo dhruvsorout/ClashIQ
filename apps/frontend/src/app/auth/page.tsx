@@ -4,296 +4,211 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
-import { registerUser } from "@/lib/api";
+import { EyeIcon, EyeOffIcon, SwordsIcon } from "@/components/ui/Icons";
 
-type Tab = "login" | "register";
+type AuthTab = "login" | "register";
 
 export default function AuthPage() {
-  const { login } = useAuth();
+  const { login, register } = useAuth();
   const router = useRouter();
 
-  const [tab, setTab] = useState<Tab>("login");
+  const [tab, setTab] = useState<AuthTab>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const reset = () => {
-    setError("");
-    setSuccess("");
+  const resetForm = () => {
+    setError(null);
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const validateInputs = (): boolean => {
+    if (!email || !email.includes("@")) {
+      setError("Please provide a valid email address.");
+      return false;
+    }
+
+    if (tab === "register") {
+      if (password.length < 8) {
+        setError("Password must be at least 8 characters long.");
+        return false;
+      }
+      if (!/[A-Z]/.test(password)) {
+        setError("Password must contain at least one uppercase letter.");
+        return false;
+      }
+      if (!/[0-9]/.test(password)) {
+        setError("Password must contain at least one number.");
+        return false;
+      }
+    } else {
+      if (!password) {
+        setError("Please enter your password.");
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    reset();
+    resetForm();
+
+    if (!validateInputs()) return;
+
     setIsLoading(true);
     try {
-      await login(email, password);
+      if (tab === "login") {
+        await login(email, password);
+      } else {
+        await register(email, password);
+      }
       router.replace("/dashboard");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Login failed");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Authentication failed");
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    reset();
-    setIsLoading(true);
-    try {
-      await registerUser(email, password);
-      setSuccess("Account created! Signing you in…");
-      // Auto-login after register
-      await login(email, password);
-      router.replace("/dashboard");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Registration failed");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const switchTab = (t: Tab) => {
-    setTab(t);
-    reset();
-    setEmail("");
-    setPassword("");
   };
 
   return (
-    <div
-      className="page-container"
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        minHeight: "100vh",
-        padding: "2rem 1rem",
-      }}
-    >
-      {/* Orbs */}
-      <div
-        className="orb orb-purple"
-        style={{ width: 500, height: 500, top: -80, left: -80, opacity: 0.5 }}
-      />
-      <div
-        className="orb orb-indigo"
-        style={{ width: 400, height: 400, bottom: -60, right: -60, opacity: 0.4 }}
-      />
+    <div className="min-h-screen bg-[#0B0F17] flex flex-col justify-center items-center px-4 py-12">
+      {/* Brand Header */}
+      <Link href="/" className="flex items-center gap-2 mb-8 group">
+        <div className="w-8 h-8 bg-[#2563EB] text-white flex items-center justify-center font-bold text-base rounded-sm">
+          <SwordsIcon className="w-5 h-5" />
+        </div>
+        <span className="font-display font-bold text-2xl tracking-tight text-[#F8FAFC]">
+          Clash<span className="text-[#3B82F6]">IQ</span>
+        </span>
+      </Link>
 
-      <div
-        className="card animate-fade-in-up"
-        style={{
-          width: "100%",
-          maxWidth: 440,
-          padding: "2.5rem",
-          position: "relative",
-          zIndex: 1,
-        }}
-      >
-        {/* Logo */}
-        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-          <Link href="/" className="nav-logo gradient-text" style={{ fontSize: "1.75rem" }}>
-            ClashIQ
-          </Link>
-          <p style={{ color: "var(--text-muted)", marginTop: "0.4rem", fontSize: "0.875rem" }}>
-            {tab === "login" ? "Welcome back, champion!" : "Join the arena today."}
+      {/* Auth Card Container */}
+      <div className="surface-card w-full max-w-md p-6 sm:p-8">
+        {/* Tab Toggle */}
+        <div className="grid grid-cols-2 bg-[#1A2234] border border-[#242F45] p-1 rounded mb-6">
+          <button
+            type="button"
+            onClick={() => {
+              setTab("login");
+              resetForm();
+            }}
+            className={`py-2 text-xs font-semibold rounded font-mono transition-colors ${
+              tab === "login"
+                ? "bg-[#2563EB] text-white"
+                : "text-[#94A3B8] hover:text-[#F8FAFC]"
+            }`}
+          >
+            SIGN IN
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTab("register");
+              resetForm();
+            }}
+            className={`py-2 text-xs font-semibold rounded font-mono transition-colors ${
+              tab === "register"
+                ? "bg-[#2563EB] text-white"
+                : "text-[#94A3B8] hover:text-[#F8FAFC]"
+            }`}
+          >
+            REGISTER
+          </button>
+        </div>
+
+        {/* Title */}
+        <div className="mb-6">
+          <h2 className="font-display font-bold text-xl text-[#F8FAFC]">
+            {tab === "login" ? "Enter the Arena" : "Create Competitor Account"}
+          </h2>
+          <p className="text-xs text-[#94A3B8] mt-1">
+            {tab === "login"
+              ? "Access your ranked profile, statistics, and live match pool."
+              : "Establish your starting 1000 ELO rating and join 1v1 battles."}
           </p>
         </div>
 
-        {/* Tab toggle */}
-        <div
-          style={{
-            display: "flex",
-            background: "rgba(255,255,255,0.04)",
-            borderRadius: "var(--radius-md)",
-            padding: "4px",
-            marginBottom: "1.75rem",
-            border: "1px solid var(--border)",
-          }}
-        >
-          {(["login", "register"] as Tab[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => switchTab(t)}
-              style={{
-                flex: 1,
-                padding: "0.6rem",
-                borderRadius: "calc(var(--radius-md) - 2px)",
-                border: "none",
-                cursor: "pointer",
-                fontWeight: 600,
-                fontSize: "0.875rem",
-                transition: "all 0.2s",
-                background: tab === t ? "var(--accent-primary)" : "transparent",
-                color: tab === t ? "white" : "var(--text-secondary)",
-                boxShadow: tab === t ? "0 0 16px var(--accent-glow)" : "none",
-              }}
-            >
-              {t === "login" ? "Sign In" : "Register"}
-            </button>
-          ))}
-        </div>
+        {/* Error Notification */}
+        {error && (
+          <div className="mb-6 p-3 bg-[#7F1D1D]/30 border border-[#DC2626] rounded text-xs text-[#FCA5A5] font-mono">
+            {error}
+          </div>
+        )}
 
         {/* Form */}
-        <form onSubmit={tab === "login" ? handleLogin : handleRegister}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
-            <div>
-              <label className="input-label" htmlFor="auth-email">
-                Email address
-              </label>
-              <input
-                id="auth-email"
-                className="input"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-mono font-semibold text-[#94A3B8] uppercase tracking-wider mb-1.5">
+              Email Address
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="competitor@domain.com"
+              required
+              autoFocus
+              className="input-solid h-11"
+            />
+          </div>
 
-            <div>
-              <label className="input-label" htmlFor="auth-password">
-                Password
-              </label>
+          <div>
+            <label className="block text-xs font-mono font-semibold text-[#94A3B8] uppercase tracking-wider mb-1.5">
+              Password
+            </label>
+            <div className="relative">
               <input
-                id="auth-password"
-                className="input"
-                type="password"
-                placeholder="••••••••"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
                 required
-                minLength={6}
-                autoComplete={tab === "login" ? "current-password" : "new-password"}
+                className="input-solid h-11 pr-10"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#F8FAFC]"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <EyeOffIcon className="w-4 h-4" />
+                ) : (
+                  <EyeIcon className="w-4 h-4" />
+                )}
+              </button>
             </div>
-
-            {/* Error / Success messages */}
-            {error && (
-              <div
-                className="animate-fade-in"
-                style={{
-                  background: "rgba(239,68,68,0.1)",
-                  border: "1px solid rgba(239,68,68,0.3)",
-                  borderRadius: "var(--radius-sm)",
-                  padding: "0.75rem 1rem",
-                  color: "var(--danger)",
-                  fontSize: "0.875rem",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                }}
-              >
-                <span>⚠</span> {error}
-              </div>
+            {tab === "register" && (
+              <p className="text-[11px] font-mono text-[#64748B] mt-1.5">
+                Must be at least 8 characters with 1 uppercase letter and 1 number.
+              </p>
             )}
-
-            {success && (
-              <div
-                className="animate-fade-in"
-                style={{
-                  background: "rgba(16,185,129,0.1)",
-                  border: "1px solid rgba(16,185,129,0.3)",
-                  borderRadius: "var(--radius-sm)",
-                  padding: "0.75rem 1rem",
-                  color: "var(--success)",
-                  fontSize: "0.875rem",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                }}
-              >
-                <span>✓</span> {success}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={isLoading}
-              style={{ marginTop: "0.25rem", padding: "0.9rem" }}
-            >
-              {isLoading ? (
-                <>
-                  <span
-                    style={{
-                      width: 16,
-                      height: 16,
-                      border: "2px solid rgba(255,255,255,0.3)",
-                      borderTopColor: "white",
-                      borderRadius: "50%",
-                      animation: "spin-slow 0.7s linear infinite",
-                      display: "inline-block",
-                    }}
-                  />
-                  {tab === "login" ? "Signing in…" : "Creating account…"}
-                </>
-              ) : tab === "login" ? (
-                "Sign In"
-              ) : (
-                "Create Account"
-              )}
-            </button>
           </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="btn btn-primary w-full h-11 text-sm font-mono font-bold mt-2"
+          >
+            {isLoading
+              ? "PROCESSING..."
+              : tab === "login"
+              ? "LOG IN TO ARENA"
+              : "CREATE ACCOUNT & ENTER"}
+          </button>
         </form>
 
-        {/* Divider */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "1rem",
-            marginTop: "1.75rem",
-            marginBottom: "1rem",
-          }}
-        >
-          <div className="divider" style={{ margin: 0, flex: 1 }} />
-          <span style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>or</span>
-          <div className="divider" style={{ margin: 0, flex: 1 }} />
+        <div className="mt-6 pt-4 border-t border-[#1E293B] text-center">
+          <Link
+            href="/"
+            className="text-xs font-mono text-[#94A3B8] hover:text-[#F8FAFC] transition-colors"
+          >
+            ← Return to Homepage
+          </Link>
         </div>
-
-        <p style={{ textAlign: "center", fontSize: "0.875rem", color: "var(--text-muted)" }}>
-          {tab === "login" ? (
-            <>
-              Don&apos;t have an account?{" "}
-              <button
-                onClick={() => switchTab("register")}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "var(--accent-primary)",
-                  cursor: "pointer",
-                  fontWeight: 600,
-                  fontSize: "0.875rem",
-                }}
-              >
-                Register
-              </button>
-            </>
-          ) : (
-            <>
-              Already have an account?{" "}
-              <button
-                onClick={() => switchTab("login")}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "var(--accent-primary)",
-                  cursor: "pointer",
-                  fontWeight: 600,
-                  fontSize: "0.875rem",
-                }}
-              >
-                Sign in
-              </button>
-            </>
-          )}
-        </p>
       </div>
     </div>
   );

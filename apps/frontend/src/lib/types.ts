@@ -1,44 +1,141 @@
 export type QuestionSign = "PLUS" | "MINUS" | "DIVIDE" | "MULTIPLICATION";
 
-export interface Question {
+export interface ClientQuestion {
   id: string;
   operation1: number;
   operation2: number;
   sign: QuestionSign;
-  answer: number;
 }
 
 export interface OnlineUser {
   id: string;
-  name: string;
+  username: string;
 }
 
-export interface Game {
-  id: string;
-  status: "SEARCHING_FOR_PLAYER" | "RUNNING" | "OVER";
-}
+export type GameOverReason = "COMPLETED" | "FORFEIT" | "TIME_LIMIT";
+export type PlayerGameResult = "WON" | "LOSS" | "DRAW";
 
-// WS Message types — Server → Client
+// Server -> Client WebSocket Events
 export type WsServerMessage =
   | {
       type: "ONLINE_USERS";
-      payload: { users: [string, { id: string; name: string }][] };
+      payload: {
+        users: OnlineUser[];
+      };
     }
   | {
       type: "GAME_REQUEST";
-      payload: { gameId: string };
+      payload: {
+        gameId: string;
+      };
+    }
+  | {
+      type: "GAME_STARTED";
+      payload: {
+        gameId: string;
+        opponent: OnlineUser;
+        timeLimit: number;
+        totalQuestions: number;
+      };
     }
   | {
       type: "QUESTION";
-      payload: { gameId: string; question: Question };
+      payload: {
+        gameId: string;
+        question: ClientQuestion;
+        questionNumber: number;
+        totalQuestions: number;
+      };
+    }
+  | {
+      type: "ANSWER_RESULT";
+      payload: {
+        gameId: string;
+        questionId: string;
+        correct: boolean;
+      };
+    }
+  | {
+      type: "GAME_OVER";
+      payload: {
+        gameId: string;
+        winnerId: string | null;
+        reason: GameOverReason;
+        userResult: PlayerGameResult;
+        ratingChange: number;
+        newRating: number;
+      };
+    }
+  | {
+      type: "ERROR";
+      payload: {
+        code: string;
+        message: string;
+      };
     };
 
-// WS Message types — Client → Server
+// Client -> Server WebSocket Events
 export type WsClientMessage =
-  | { type: "PLAY_GAME"; payload: Record<string, never> }
-  | { type: "SUBMIT_ANSWER"; payload: { gameId: string; questionId: string; answer: number } };
+  | {
+      type: "PLAY_GAME";
+      payload?: Record<string, unknown>;
+    }
+  | {
+      type: "CANCEL_MATCHMAKING";
+      payload?: Record<string, unknown>;
+    }
+  | {
+      type: "SUBMIT_ANSWER";
+      payload: {
+        gameId: string;
+        questionId: string;
+        answer: number;
+      };
+    }
+  | {
+      type: "LEAVE_GAME";
+      payload: {
+        gameId: string;
+      };
+    };
 
-export interface AuthUser {
+// HTTP API Data Types
+export interface UserProfile {
+  id: string;
   email: string;
   username: string;
+  rating: number | null;
+}
+
+export interface UserStats {
+  totalGames: number;
+  gamesWon: number;
+  gamesLost: number;
+  winRate: number;
+  totalAnswers: number;
+  correctAnswers: number;
+  accuracy: number;
+  rating: number;
+}
+
+export interface GameHistoryOpponent {
+  userId: string;
+  username: string;
+  result: "WON" | "LOSS";
+}
+
+export interface GameHistoryItem {
+  gameId: string;
+  status: "OVER" | "RUNNING" | "SEARCHING_FOR_PLAYER";
+  result: "WON" | "LOSS" | null;
+  timeLimit: number;
+  startedAt: string;
+  endedAt: string;
+  opponents: GameHistoryOpponent[];
+}
+
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
 }

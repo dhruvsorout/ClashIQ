@@ -7,72 +7,142 @@ import {
   useEffect,
   useRef,
   useState,
-  ReactNode,
+  type ReactNode,
 } from "react";
 import { AuthContext } from "./AuthContext";
-import type { OnlineUser, Question, WsServerMessage } from "@/lib/types";
+import type {
+  ClientQuestion,
+  GameOverReason,
+  OnlineUser,
+  PlayerGameResult,
+  WsServerMessage,
+} from "@/lib/types";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8080";
 
+export type ConnectionStatus =
+  | "DISCONNECTED"
+  | "CONNECTING"
+  | "CONNECTED"
+  | "RECONNECTING"
+  | "ERROR";
+
+export type MatchmakingState = "IDLE" | "SEARCHING" | "MATCHED";
+
+export interface ActiveGameData {
+  gameId: string;
+  opponent: OnlineUser;
+  timeLimit: number;
+  totalQuestions: number;
+}
+
+export interface CurrentQuestionData {
+  gameId: string;
+  question: ClientQuestion;
+  questionNumber: number;
+  totalQuestions: number;
+}
+
+export interface GameOverData {
+  gameId: string;
+  winnerId: string | null;
+  reason: GameOverReason;
+  userResult: PlayerGameResult;
+  ratingChange: number;
+  newRating: number;
+}
+
 interface WebSocketContextValue {
+  connectionStatus: ConnectionStatus;
   isConnected: boolean;
   onlineUsers: OnlineUser[];
-  pendingGameRequest: string | null; // gameId
-  currentQuestion: { gameId: string; question: Question } | null;
-  sendPlayGame: () => void;
-  sendAnswer: (gameId: string, questionId: string, answer: number) => void;
-  clearGameRequest: () => void;
-  clearQuestion: () => void;
+  matchmakingState: MatchmakingState;
+  pendingGameId: string | null;
+  activeGame: ActiveGameData | null;
+  currentQuestion: CurrentQuestionData | null;
+  lastAnswerResult: { questionId: string; correct: boolean } | null;
+  gameOverResult: GameOverData | null;
+  lastError: { code: string; message: string } | null;
+
+  startMatchmaking: () => void;
+  cancelMatchmaking: () => void;
+  submitAnswer: (gameId: string, questionId: string, answer: number) => void;
+  leaveGame: (gameId: string) => void;
+  resetGameState: () => void;
+  clearError: () => void;
 }
 
 export const WebSocketContext = createContext<WebSocketContextValue>({
+  connectionStatus: "DISCONNECTED",
   isConnected: false,
   onlineUsers: [],
-  pendingGameRequest: null,
+  matchmakingState: "IDLE",
+  pendingGameId: null,
+  activeGame: null,
   currentQuestion: null,
-  sendPlayGame: () => {},
-  sendAnswer: () => {},
-  clearGameRequest: () => {},
-  clearQuestion: () => {},
+  lastAnswerResult: null,
+  gameOverResult: null,
+  lastError: null,
+
+  startMatchmaking: () => {},
+  cancelMatchmaking: () => {},
+  submitAnswer: () => {},
+  leaveGame: () => {},
+  resetGameState: () => {},
+  clearError: () => {},
 });
 
 export function WebSocketProvider({ children }: { children: ReactNode }) {
-  const { token } = useContext(AuthContext);
+  const { token, refreshUser } = useContext(AuthContext);
   const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const connectRef = useRef<(userToken: string) => void>(() => {});
 
-  const [isConnected, setIsConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("DISCONNECTED");
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
-  const [pendingGameRequest, setPendingGameRequest] = useState<string | null>(null);
-  const [currentQuestion, setCurrentQuestion] = useState<{
-    gameId: string;
-    question: Question;
+  const [matchmakingState, setMatchmakingState] = useState<MatchmakingState>("IDLE");
+  const [pendingGameId, setPendingGameId] = useState<string | null>(null);
+  const [activeGame, setActiveGame] = useState<ActiveGameData | null>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<CurrentQuestionData | null>(null);
+  const [lastAnswerResult, setLastAnswerResult] = useState<{
+    questionId: string;
+    correct: boolean;
   } | null>(null);
+  const [gameOverResult, setGameOverResult] = useState<GameOverData | null>(null);
+  const [lastError, setLastError] = useState<{ code: string; message: string } | null>(null);
 
-  useEffect(() => {
-    if (!token) {
-      // Close existing connection if token disappears (logout)
-      wsRef.current?.close();
-      wsRef.current = null;
-      setIsConnected(false);
-      setOnlineUsers([]);
+  const connect = useCallback((userToken: string) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       return;
     }
 
-    // Avoid duplicate connections
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
+    setConnectionStatus((prev) => (prev === "DISCONNECTED" ? "CONNECTING" : "RECONNECTING"));
 
-    const ws = new WebSocket(`${WS_URL}?token=${token}`);
+    const ws = new WebSocket(`${WS_URL}?token=${userToken}`);
     wsRef.current = ws;
 
-    ws.onopen = () => setIsConnected(true);
-
-    ws.onclose = () => {
-      setIsConnected(false);
-      wsRef.current = null;
+    ws.onopen = () => {
+      setConnectionStatus("CONNECTED");
+      reconnectAttemptsRef.current = 0;
     };
 
-    ws.onerror = (err) => {
-      console.error("[WS] Error:", err);
+    ws.onclose = (event) => {
+      wsRef.current = null;
+      setConnectionStatus("DISCONNECTED");
+
+      // Auto-reconnect if not closed intentionally or unauthorized
+      if (event.code !== 4001 && event.code !== 1000 && token) {
+        const backoff = Math.min(1000 * Math.pow(1.5, reconnectAttemptsRef.current), 10000);
+        reconnectAttemptsRef.current += 1;
+        reconnectTimeoutRef.current = setTimeout(() => {
+          if (token) connectRef.current(token);
+        }, backoff);
+      }
+    };
+
+    ws.onerror = () => {
+      setConnectionStatus("ERROR");
     };
 
     ws.onmessage = (event) => {
@@ -81,69 +151,159 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 
         switch (msg.type) {
           case "ONLINE_USERS": {
-            // msg.payload.users is [string, {id, name}][] (Map entries)
-            const users: OnlineUser[] = msg.payload.users.map(([, u]) => ({
-              id: u.id,
-              name: u.name,
-            }));
-            setOnlineUsers(users);
+            setOnlineUsers(msg.payload.users);
             break;
           }
 
           case "GAME_REQUEST": {
-            setPendingGameRequest(msg.payload.gameId);
+            setPendingGameId(msg.payload.gameId);
+            setMatchmakingState("SEARCHING");
+            break;
+          }
+
+          case "GAME_STARTED": {
+            setActiveGame(msg.payload);
+            setPendingGameId(null);
+            setMatchmakingState("MATCHED");
+            setGameOverResult(null);
+            setLastAnswerResult(null);
             break;
           }
 
           case "QUESTION": {
-            setCurrentQuestion({
-              gameId: msg.payload.gameId,
-              question: msg.payload.question,
+            setCurrentQuestion(msg.payload);
+            setLastAnswerResult(null);
+            break;
+          }
+
+          case "ANSWER_RESULT": {
+            setLastAnswerResult({
+              questionId: msg.payload.questionId,
+              correct: msg.payload.correct,
             });
             break;
           }
+
+          case "GAME_OVER": {
+            setGameOverResult(msg.payload);
+            setMatchmakingState("IDLE");
+            refreshUser();
+            break;
+          }
+
+          case "ERROR": {
+            setLastError(msg.payload);
+            if (msg.payload.code === "ALREADY_IN_GAME") {
+              setMatchmakingState("IDLE");
+            }
+            break;
+          }
         }
-      } catch (e) {
-        console.error("[WS] Failed to parse message:", e);
+      } catch (err) {
+        console.error("[WS] Failed to parse message:", err);
       }
     };
+  }, [token, refreshUser]);
+
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
+
+  useEffect(() => {
+    if (!token) {
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      wsRef.current?.close(1000, "User logged out");
+      wsRef.current = null;
+      return;
+    }
+
+    let isMounted = true;
+    Promise.resolve().then(() => {
+      if (isMounted && token) {
+        connect(token);
+      }
+    });
 
     return () => {
-      ws.close();
+      isMounted = false;
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      wsRef.current?.close();
     };
-  }, [token]);
+  }, [token, connect]);
 
-  const sendMessage = useCallback((data: object) => {
+  const sendRaw = useCallback((data: object) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(data));
     }
   }, []);
 
-  const sendPlayGame = useCallback(() => {
-    sendMessage({ type: "PLAY_GAME", payload: {} });
-  }, [sendMessage]);
+  const startMatchmaking = useCallback(() => {
+    setMatchmakingState("SEARCHING");
+    setGameOverResult(null);
+    sendRaw({ type: "PLAY_GAME", payload: {} });
+  }, [sendRaw]);
 
-  const sendAnswer = useCallback(
+  const cancelMatchmaking = useCallback(() => {
+    setMatchmakingState("IDLE");
+    setPendingGameId(null);
+    sendRaw({ type: "CANCEL_MATCHMAKING", payload: {} });
+  }, [sendRaw]);
+
+  const submitAnswer = useCallback(
     (gameId: string, questionId: string, answer: number) => {
-      sendMessage({ type: "SUBMIT_ANSWER", payload: { gameId, questionId, answer } });
+      sendRaw({
+        type: "SUBMIT_ANSWER",
+        payload: { gameId, questionId, answer },
+      });
     },
-    [sendMessage]
+    [sendRaw]
   );
 
-  const clearGameRequest = useCallback(() => setPendingGameRequest(null), []);
-  const clearQuestion = useCallback(() => setCurrentQuestion(null), []);
+  const leaveGame = useCallback(
+    (gameId: string) => {
+      sendRaw({
+        type: "LEAVE_GAME",
+        payload: { gameId },
+      });
+      setActiveGame(null);
+      setCurrentQuestion(null);
+      setMatchmakingState("IDLE");
+    },
+    [sendRaw]
+  );
+
+  const resetGameState = useCallback(() => {
+    setActiveGame(null);
+    setCurrentQuestion(null);
+    setGameOverResult(null);
+    setLastAnswerResult(null);
+    setMatchmakingState("IDLE");
+    setPendingGameId(null);
+  }, []);
+
+  const clearError = useCallback(() => {
+    setLastError(null);
+  }, []);
 
   return (
     <WebSocketContext.Provider
       value={{
-        isConnected,
+        connectionStatus,
+        isConnected: connectionStatus === "CONNECTED",
         onlineUsers,
-        pendingGameRequest,
+        matchmakingState,
+        pendingGameId,
+        activeGame,
         currentQuestion,
-        sendPlayGame,
-        sendAnswer,
-        clearGameRequest,
-        clearQuestion,
+        lastAnswerResult,
+        gameOverResult,
+        lastError,
+        startMatchmaking,
+        cancelMatchmaking,
+        submitAnswer,
+        leaveGame,
+        resetGameState,
+        clearError,
       }}
     >
       {children}
