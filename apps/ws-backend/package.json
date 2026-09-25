@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "typecheck": "tsc --noEmit",
+    "test": "tsx test/test-runner.ts",
     "lint": "eslint ."
   },
   "keywords": [],
@@ -16,10 +17,15 @@
     "@ClashIQ/config": "workspace:*",
     "@ClashIQ/db": "workspace:*",
     "jsonwebtoken": "^9.0.3",
-    "ws": "^8.21.3"
+    "ws": "^8.21.3",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@ClashIQ/eslint-config": "workspace:*",
+    "@ClashIQ/typescript-config": "workspace:*",
     "@types/jsonwebtoken": "^9.0.10",
-    "@types/ws": "^8.18.1"
+    "@types/node": "^26.6.2",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.23.15"
   }
 }
