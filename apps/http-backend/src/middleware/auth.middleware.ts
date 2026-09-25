@@ -1,4 +1,4 @@
-﻿import { config } from "@ClashIQ/config";
+import { config } from "@ClashIQ/config";
 import { NextFunction, Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import jwt, { JwtPayload } from "jsonwebtoken";

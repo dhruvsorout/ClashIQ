@@ -1,4 +1,4 @@
-﻿import { NextFunction, Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import { registerUser, loginUser, getAuthenticatedUser } from "../services/auth.service.js";
 import { sendSuccess } from "../utils/response.js";

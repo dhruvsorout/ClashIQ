@@ -1,4 +1,4 @@
-﻿import { db } from "@ClashIQ/db";
+import { db } from "@ClashIQ/db";
 import { AppError } from "../utils/AppError.js";
 import { StatusCodes } from "http-status-codes";
 

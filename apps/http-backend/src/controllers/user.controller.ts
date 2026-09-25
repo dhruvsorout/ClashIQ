@@ -1,4 +1,4 @@
-﻿import { NextFunction, Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import { getUserById, updateUserProfile, searchUsers } from "../services/user.service.js";
 import { getUserStats } from "../services/game.service.js";

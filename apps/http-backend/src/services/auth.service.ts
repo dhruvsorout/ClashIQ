@@ -1,4 +1,4 @@
-﻿import bcrypt from "bcrypt";
+import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { db } from "@ClashIQ/db";
 import { config } from "@ClashIQ/config";

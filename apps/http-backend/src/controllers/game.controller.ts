@@ -1,4 +1,4 @@
-﻿import { NextFunction, Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { getGameHistory, getGameById } from "../services/game.service.js";
 import { sendSuccess } from "../utils/response.js";
 
