@@ -1,35 +1,66 @@
-import { config } from "@ClashIQ/config";
+﻿import { config } from "@ClashIQ/config";
 import { NextFunction, Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import jwt, { JwtPayload } from "jsonwebtoken";
 
 const JWT_SECRET = config.jwtSecret;
 
-export const authMiddleware = async(req: Request, res: Response, next: NextFunction) => {
-    try{
-        const token = req.headers.authorization;
+export const authMiddleware = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
+  const authHeader = req.headers.authorization;
 
-        if(!token){
-            return res.status(StatusCodes.NOT_FOUND).json({
-                message: "Invalid token",
-            })
-        }
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(StatusCodes.UNAUTHORIZED).json({
+      success: false,
+      message: "Authentication required. Provide a Bearer token.",
+    });
+    return;
+  }
 
-        const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+  const token = authHeader.slice(7);
 
-        if (typeof decoded === "string" || !decoded.userId) {
-            return res.status(StatusCodes.UNAUTHORIZED).json({
-                message: "Invalid token",
-            });
-        }
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
 
-        req.userId = decoded.userId;
-        next();
-    } catch(error){
-        console.error(error);
-
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-                message: "Something went wrong",
-            })
+    if (typeof decoded === "string" || !decoded.userId) {
+      res.status(StatusCodes.UNAUTHORIZED).json({
+        success: false,
+        message: "Invalid token payload.",
+      });
+      return;
     }
-}
+
+    req.userId = decoded.userId as string;
+    next();
+  } catch (error) {
+    if (error instanceof Error && error.name === "TokenExpiredError") {
+      res.status(StatusCodes.UNAUTHORIZED).json({
+        success: false,
+        message: "Token expired. Please log in again.",
+      });
+      return;
+    }
+
+    if (
+      error instanceof Error &&
+      (error.name === "JsonWebTokenError" ||
+        error.name === "NotBeforeError" ||
+        error.name === "SyntaxError")
+    ) {
+      res.status(StatusCodes.UNAUTHORIZED).json({
+        success: false,
+        message: "Invalid token.",
+      });
+      return;
+    }
+
+    console.error("[authMiddleware] Unexpected error:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Internal server error.",
+    });
+  }
+};
