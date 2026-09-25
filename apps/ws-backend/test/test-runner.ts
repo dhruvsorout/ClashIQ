@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import jwt from "jsonwebtoken";
 import WebSocket from "ws";
 import { config } from "@ClashIQ/config";
@@ -467,6 +468,424 @@ async function runTests() {
     );
 
     errClient.ws.close();
+
+    // -------------------------------------------------------------
+    // GROUP 7: FRIEND CHALLENGES (FULL LIFECYCLE & INTEGRATION)
+    // -------------------------------------------------------------
+    console.log("\n--- Group 7: Friend Challenges ---");
+
+    // Setup DB state: USER_1 and USER_2 are friends; USER_3 is not friends with USER_1
+    await db.friends.deleteMany({
+      where: {
+        OR: [
+          { senderId: USER_1.id, receiverId: USER_2.id },
+          { senderId: USER_2.id, receiverId: USER_1.id },
+          { senderId: USER_1.id, receiverId: USER_3.id },
+          { senderId: USER_3.id, receiverId: USER_1.id },
+        ],
+      },
+    });
+
+    await db.friends.create({
+      data: {
+        senderId: USER_1.id,
+        receiverId: USER_2.id,
+        friendStatus: "ACCEPTED",
+      },
+    });
+
+    // Clean up test challenges
+    await db.gameChallenge.deleteMany({
+      where: {
+        OR: [
+          { challengerId: USER_1.id },
+          { challengerId: USER_2.id },
+          { challengerId: USER_3.id },
+          { challengedId: USER_1.id },
+          { challengedId: USER_2.id },
+          { challengedId: USER_3.id },
+        ],
+      },
+    });
+
+    // Connect clients
+    const friendClient1 = await connectClient(createToken(USER_1.id));
+    const friendClient2 = await connectClient(createToken(USER_2.id));
+    const nonFriendClient = await connectClient(createToken(USER_3.id));
+
+    // Test 31: User cannot challenge themselves
+    friendClient1.ws.send(
+      JSON.stringify({
+        type: "CHALLENGE_FRIEND",
+        payload: { friendId: USER_1.id },
+      })
+    );
+    const selfErr = await waitForMessage(
+      friendClient1.messages,
+      (m) => m.type === "ERROR" && m.payload.code === "CANNOT_CHALLENGE_SELF"
+    );
+    assert(
+      selfErr.payload.code === "CANNOT_CHALLENGE_SELF",
+      "Test 31: User cannot challenge themselves (CANNOT_CHALLENGE_SELF)"
+    );
+
+    // Test 32: User cannot challenge non-friend
+    friendClient1.ws.send(
+      JSON.stringify({
+        type: "CHALLENGE_FRIEND",
+        payload: { friendId: USER_3.id },
+      })
+    );
+    const nonFriendErr = await waitForMessage(
+      friendClient1.messages,
+      (m) => m.type === "ERROR" && m.payload.code === "NOT_FRIENDS"
+    );
+    assert(
+      nonFriendErr.payload.code === "NOT_FRIENDS",
+      "Test 32: User cannot challenge non-friend (NOT_FRIENDS)"
+    );
+
+    // Test 33 & 34: Challenge an accepted friend; target receives real-time notification
+    friendClient1.ws.send(
+      JSON.stringify({
+        type: "CHALLENGE_FRIEND",
+        payload: { friendId: USER_2.id },
+      })
+    );
+
+    const receivedChallenge = await waitForMessage(
+      friendClient2.messages,
+      (m) => m.type === "CHALLENGE_RECEIVED" && m.payload.challenger.id === USER_1.id
+    );
+    assert(
+      Boolean(receivedChallenge.payload.challengeId),
+      "Test 33: Target friend receives CHALLENGE_RECEIVED with challenger details"
+    );
+
+    const activeChallengeId = receivedChallenge.payload.challengeId;
+    const challengeRecord = await db.gameChallenge.findUnique({
+      where: { id: activeChallengeId },
+    });
+    assert(
+      challengeRecord?.status === "PENDING" && challengeRecord.expiresAt > new Date(),
+      "Test 34: Challenge is persisted in DB with status PENDING and expiresAt"
+    );
+
+    // Test 35: Duplicate pending challenge rejected
+    friendClient1.ws.send(
+      JSON.stringify({
+        type: "CHALLENGE_FRIEND",
+        payload: { friendId: USER_2.id },
+      })
+    );
+    const dupErr = await waitForMessage(
+      friendClient1.messages,
+      (m) => m.type === "ERROR" && m.payload.code === "DUPLICATE_CHALLENGE"
+    );
+    assert(
+      dupErr.payload.code === "DUPLICATE_CHALLENGE",
+      "Test 35: Duplicate pending challenge between same players is rejected (DUPLICATE_CHALLENGE)"
+    );
+
+    // Test 36: Unauthorized user cannot accept someone else's challenge
+    nonFriendClient.ws.send(
+      JSON.stringify({
+        type: "ACCEPT_CHALLENGE",
+        payload: { challengeId: activeChallengeId },
+      })
+    );
+    const unauthErr = await waitForMessage(
+      nonFriendClient.messages,
+      (m) => m.type === "ERROR" && m.payload.code === "UNAUTHORIZED_CHALLENGE_ACCEPT"
+    );
+    assert(
+      unauthErr.payload.code === "UNAUTHORIZED_CHALLENGE_ACCEPT",
+      "Test 36: Unauthorized user cannot accept someone else's challenge (UNAUTHORIZED_CHALLENGE_ACCEPT)"
+    );
+
+    // Test 37 & 38: Decline challenge flow
+    friendClient2.ws.send(
+      JSON.stringify({
+        type: "DECLINE_CHALLENGE",
+        payload: { challengeId: activeChallengeId },
+      })
+    );
+    const declinedMsg = await waitForMessage(
+      friendClient1.messages,
+      (m) => m.type === "CHALLENGE_DECLINED" && m.payload.challengeId === activeChallengeId
+    );
+    assert(
+      declinedMsg.payload.userId === USER_2.id,
+      "Test 37: Challenger receives CHALLENGE_DECLINED notification"
+    );
+
+    const declinedRecord = await db.gameChallenge.findUnique({
+      where: { id: activeChallengeId },
+    });
+    assert(
+      declinedRecord?.status === "DECLINED",
+      "Test 38: Declining updates challenge DB status to DECLINED"
+    );
+
+    // Test 39: Cancellation flow
+    friendClient1.ws.send(
+      JSON.stringify({
+        type: "CHALLENGE_FRIEND",
+        payload: { friendId: USER_2.id },
+      })
+    );
+    const challengeToCancel = await waitForMessage(
+      friendClient2.messages,
+      (m) => m.type === "CHALLENGE_RECEIVED" && m.payload.challengeId !== activeChallengeId
+    );
+    friendClient1.ws.send(
+      JSON.stringify({
+        type: "CANCEL_CHALLENGE",
+        payload: { challengeId: challengeToCancel.payload.challengeId },
+      })
+    );
+    const cancelledMsg = await waitForMessage(
+      friendClient2.messages,
+      (m) => m.type === "CHALLENGE_CANCELLED" && m.payload.challengeId === challengeToCancel.payload.challengeId
+    );
+    assert(
+      Boolean(cancelledMsg),
+      "Test 39: Challenger can cancel challenge and target receives CHALLENGE_CANCELLED"
+    );
+
+    // Test 40: Expired challenge cannot be accepted
+    const expiredChallengeId = randomUUID();
+    const expiredRecord = await db.gameChallenge.create({
+      data: {
+        id: expiredChallengeId,
+        challengerId: USER_1.id,
+        challengedId: USER_2.id,
+        status: "PENDING",
+        expiresAt: new Date(Date.now() - 5000), // expired 5 seconds ago
+      },
+    });
+
+    friendClient2.ws.send(
+      JSON.stringify({
+        type: "ACCEPT_CHALLENGE",
+        payload: { challengeId: expiredRecord.id },
+      })
+    );
+    const expiredErr = await waitForMessage(
+      friendClient2.messages,
+      (m) => m.type === "ERROR" && m.payload.code === "CHALLENGE_EXPIRED"
+    );
+    assert(
+      expiredErr.payload.code === "CHALLENGE_EXPIRED",
+      "Test 40: Expired challenge cannot be accepted (CHALLENGE_EXPIRED)"
+    );
+
+    // Test 41, 42, 43, 44, 45: Full acceptance and game engine execution!
+    friendClient1.ws.send(
+      JSON.stringify({
+        type: "CHALLENGE_FRIEND",
+        payload: { friendId: USER_2.id },
+      })
+    );
+    const matchToAccept = await waitForMessage(
+      friendClient2.messages,
+      (m) =>
+        m.type === "CHALLENGE_RECEIVED" &&
+        m.payload.challengeId !== activeChallengeId &&
+        m.payload.challengeId !== challengeToCancel.payload.challengeId
+    );
+
+    const gameChallengeId = matchToAccept.payload.challengeId;
+
+    friendClient2.ws.send(
+      JSON.stringify({
+        type: "ACCEPT_CHALLENGE",
+        payload: { challengeId: gameChallengeId },
+      })
+    );
+
+    // Both players receive CHALLENGE_ACCEPTED
+    const p1Accepted = await waitForMessage(
+      friendClient1.messages,
+      (m) => m.type === "CHALLENGE_ACCEPTED" && m.payload.challengeId === gameChallengeId
+    );
+    const p2Accepted = await waitForMessage(
+      friendClient2.messages,
+      (m) => m.type === "CHALLENGE_ACCEPTED" && m.payload.challengeId === gameChallengeId
+    );
+    assert(
+      p1Accepted.payload.gameId === p2Accepted.payload.gameId,
+      "Test 41: Both players receive CHALLENGE_ACCEPTED with identical gameId"
+    );
+
+    const challengeAcceptedDb = await db.gameChallenge.findUnique({
+      where: { id: gameChallengeId },
+    });
+    assert(
+      challengeAcceptedDb?.status === "ACCEPTED",
+      "Test 42: Challenge status in DB transitioned to ACCEPTED"
+    );
+
+    // Existing game engine triggers GAME_STARTED and first QUESTION
+    const p1Started = await waitForMessage(
+      friendClient1.messages,
+      (m) => m.type === "GAME_STARTED" && m.payload.gameId === p1Accepted.payload.gameId
+    );
+    const p2Started = await waitForMessage(
+      friendClient2.messages,
+      (m) => m.type === "GAME_STARTED" && m.payload.gameId === p2Accepted.payload.gameId
+    );
+    assert(
+      p1Started.payload.opponent.id === USER_2.id && p2Started.payload.opponent.id === USER_1.id,
+      "Test 43: Both players receive GAME_STARTED with correct opponent data"
+    );
+
+    const p1Question = await waitForMessage(
+      friendClient1.messages,
+      (m) => m.type === "QUESTION" && m.payload.gameId === p1Accepted.payload.gameId
+    );
+    assert(
+      p1Question.payload.questionNumber === 1,
+      "Test 44: Existing game engine serves first QUESTION to challenger"
+    );
+
+    // Complete the game (P1 answers 10 questions correctly)
+    const activeChallengeGameId = p1Accepted.payload.gameId;
+    let challengeActiveQ = p1Question.payload.question;
+    for (let i = 1; i <= 10; i++) {
+      const correctAns = solveQuestion(challengeActiveQ);
+      friendClient1.ws.send(
+        JSON.stringify({
+          type: "SUBMIT_ANSWER",
+          payload: {
+            gameId: activeChallengeGameId,
+            questionId: challengeActiveQ.id,
+            answer: correctAns,
+          },
+        })
+      );
+      await waitForMessage(
+        friendClient1.messages,
+        (m) =>
+          m.type === "ANSWER_RESULT" &&
+          m.payload.questionId === challengeActiveQ.id &&
+          m.payload.correct === true
+      );
+
+      if (i < 10) {
+        const nextQMsg = await waitForMessage(
+          friendClient1.messages,
+          (m) =>
+            m.type === "QUESTION" &&
+            m.payload.gameId === activeChallengeGameId &&
+            m.payload.questionNumber === i + 1
+        );
+        challengeActiveQ = nextQMsg.payload.question;
+      }
+    }
+
+    const p1GameOver = await waitForMessage(
+      friendClient1.messages,
+      (m) => m.type === "GAME_OVER" && m.payload.gameId === activeChallengeGameId
+    );
+    assert(
+      p1GameOver.payload.reason === "COMPLETED",
+      "Test 45: Challenge game completes successfully via existing game engine (GAME_OVER)"
+    );
+
+    const persistedChallengeGame = await db.game.findUnique({
+      where: { id: activeChallengeGameId },
+    });
+    assert(
+      persistedChallengeGame?.status === "OVER",
+      "Test 46: Challenge game persisted in DB with status OVER"
+    );
+
+    // Test 47: Malformed challenge message rejected
+    friendClient1.ws.send(
+      JSON.stringify({
+        type: "CHALLENGE_FRIEND",
+        payload: { friendId: "not-a-uuid" },
+      })
+    );
+    const malformedErr = await waitForMessage(
+      friendClient1.messages,
+      (m) => m.type === "ERROR" && m.payload.code === "INVALID_MESSAGE_PAYLOAD"
+    );
+    assert(
+      malformedErr.payload.code === "INVALID_MESSAGE_PAYLOAD",
+      "Test 47: Malformed friendId is rejected with INVALID_MESSAGE_PAYLOAD"
+    );
+
+    // Test 48: Non-existent challenge ID rejected
+    friendClient2.ws.send(
+      JSON.stringify({
+        type: "ACCEPT_CHALLENGE",
+        payload: { challengeId: "00000000-0000-0000-0000-000000000000" },
+      })
+    );
+    const notFoundErr = await waitForMessage(
+      friendClient2.messages,
+      (m) => m.type === "ERROR" && m.payload.code === "CHALLENGE_NOT_FOUND"
+    );
+    assert(
+      notFoundErr.payload.code === "CHALLENGE_NOT_FOUND",
+      "Test 48: Accepting non-existent challenge returns CHALLENGE_NOT_FOUND"
+    );
+
+    // Test 49: Pending challenges can be retrieved after reconnect/login
+    const pendingReconnectChallengeId = randomUUID();
+    await db.gameChallenge.create({
+      data: {
+        id: pendingReconnectChallengeId,
+        challengerId: USER_1.id,
+        challengedId: USER_2.id,
+        status: "PENDING",
+        expiresAt: new Date(Date.now() + 300000),
+      },
+    });
+
+    const retrievedPending = await db.gameChallenge.findMany({
+      where: {
+        challengedId: USER_2.id,
+        status: "PENDING",
+        expiresAt: { gt: new Date() },
+      },
+      include: { challenger: { select: { id: true, username: true } } },
+    });
+    assert(
+      retrievedPending.some((c) => c.id === pendingReconnectChallengeId),
+      "Test 49: Pending challenge is retrievable from DB upon reconnect/login"
+    );
+
+    // Clean up reconnect challenge
+    await db.gameChallenge.delete({ where: { id: pendingReconnectChallengeId } });
+
+    // Test 50: Cannot challenge player who is currently in an active game
+    // Put USER_2 into matchmaking with USER_3 to create an active game
+    friendClient2.ws.send(JSON.stringify({ type: "PLAY_GAME", payload: {} }));
+    nonFriendClient.ws.send(JSON.stringify({ type: "PLAY_GAME", payload: {} }));
+    await waitForMessage(friendClient2.messages, (m) => m.type === "GAME_STARTED");
+
+    // USER_1 now tries to challenge USER_2 while USER_2 is in game
+    friendClient1.ws.send(
+      JSON.stringify({
+        type: "CHALLENGE_FRIEND",
+        payload: { friendId: USER_2.id },
+      })
+    );
+    const targetBusyErr = await waitForMessage(
+      friendClient1.messages,
+      (m) => m.type === "ERROR" && m.payload.code === "TARGET_IN_GAME"
+    );
+    assert(
+      targetBusyErr.payload.code === "TARGET_IN_GAME",
+      "Test 50: Cannot challenge player currently in an active game (TARGET_IN_GAME)"
+    );
+
+    friendClient1.ws.close();
+    friendClient2.ws.close();
+    nonFriendClient.ws.close();
   } catch (error) {
     console.error("Test execution encountered an error:", error);
     testsFailed++;

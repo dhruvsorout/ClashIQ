@@ -10,10 +10,12 @@ import {
   type ReactNode,
 } from "react";
 import { AuthContext } from "./AuthContext";
+import { getPendingChallenges } from "@/lib/api";
 import type {
   ClientQuestion,
   GameOverReason,
   OnlineUser,
+  PendingChallenge,
   PlayerGameResult,
   WsServerMessage,
 } from "@/lib/types";
@@ -64,12 +66,24 @@ interface WebSocketContextValue {
   gameOverResult: GameOverData | null;
   lastError: { code: string; message: string } | null;
 
+  // Friend Challenges
+  incomingChallenges: PendingChallenge[];
+  outgoingChallenges: PendingChallenge[];
+  activeIncomingChallenge: PendingChallenge | null;
+
   startMatchmaking: () => void;
   cancelMatchmaking: () => void;
   submitAnswer: (gameId: string, questionId: string, answer: number) => void;
   leaveGame: (gameId: string) => void;
   resetGameState: () => void;
   clearError: () => void;
+
+  challengeFriend: (friendId: string) => void;
+  acceptChallenge: (challengeId: string) => void;
+  declineChallenge: (challengeId: string) => void;
+  cancelChallenge: (challengeId: string) => void;
+  dismissChallengeModal: () => void;
+  refreshChallenges: () => Promise<void>;
 }
 
 export const WebSocketContext = createContext<WebSocketContextValue>({
@@ -84,12 +98,23 @@ export const WebSocketContext = createContext<WebSocketContextValue>({
   gameOverResult: null,
   lastError: null,
 
+  incomingChallenges: [],
+  outgoingChallenges: [],
+  activeIncomingChallenge: null,
+
   startMatchmaking: () => {},
   cancelMatchmaking: () => {},
   submitAnswer: () => {},
   leaveGame: () => {},
   resetGameState: () => {},
   clearError: () => {},
+
+  challengeFriend: () => {},
+  acceptChallenge: () => {},
+  declineChallenge: () => {},
+  cancelChallenge: () => {},
+  dismissChallengeModal: () => {},
+  refreshChallenges: async () => {},
 });
 
 export function WebSocketProvider({ children }: { children: ReactNode }) {
@@ -111,6 +136,11 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   } | null>(null);
   const [gameOverResult, setGameOverResult] = useState<GameOverData | null>(null);
   const [lastError, setLastError] = useState<{ code: string; message: string } | null>(null);
+
+  // Friend Challenges State
+  const [incomingChallenges, setIncomingChallenges] = useState<PendingChallenge[]>([]);
+  const [outgoingChallenges, setOutgoingChallenges] = useState<PendingChallenge[]>([]);
+  const [activeIncomingChallenge, setActiveIncomingChallenge] = useState<PendingChallenge | null>(null);
 
   const connect = useCallback((userToken: string) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -167,6 +197,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
             setMatchmakingState("MATCHED");
             setGameOverResult(null);
             setLastAnswerResult(null);
+            setActiveIncomingChallenge(null);
             break;
           }
 
@@ -189,6 +220,56 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
             setMatchmakingState("IDLE");
             updateUserRating(msg.payload.newRating);
             refreshUser();
+            break;
+          }
+
+          case "CHALLENGE_RECEIVED": {
+            const newChallenge: PendingChallenge = {
+              id: msg.payload.challengeId,
+              challenger: msg.payload.challenger,
+              createdAt: new Date().toISOString(),
+              expiresAt: msg.payload.expiresAt,
+            };
+            setIncomingChallenges((prev) => {
+              const filtered = prev.filter((c) => c.id !== newChallenge.id);
+              return [newChallenge, ...filtered];
+            });
+            setActiveIncomingChallenge(newChallenge);
+            break;
+          }
+
+          case "CHALLENGE_ACCEPTED": {
+            const { challengeId } = msg.payload;
+            setIncomingChallenges((prev) => prev.filter((c) => c.id !== challengeId));
+            setOutgoingChallenges((prev) => prev.filter((c) => c.id !== challengeId));
+            setActiveIncomingChallenge((curr) => (curr?.id === challengeId ? null : curr));
+            break;
+          }
+
+          case "CHALLENGE_DECLINED": {
+            const { challengeId } = msg.payload;
+            setIncomingChallenges((prev) => prev.filter((c) => c.id !== challengeId));
+            setOutgoingChallenges((prev) => prev.filter((c) => c.id !== challengeId));
+            setActiveIncomingChallenge((curr) => (curr?.id === challengeId ? null : curr));
+            setLastError({
+              code: "CHALLENGE_DECLINED",
+              message: "Your game challenge was declined.",
+            });
+            break;
+          }
+
+          case "CHALLENGE_EXPIRED": {
+            const { challengeId } = msg.payload;
+            setIncomingChallenges((prev) => prev.filter((c) => c.id !== challengeId));
+            setOutgoingChallenges((prev) => prev.filter((c) => c.id !== challengeId));
+            setActiveIncomingChallenge((curr) => (curr?.id === challengeId ? null : curr));
+            break;
+          }
+
+          case "CHALLENGE_CANCELLED": {
+            const { challengeId } = msg.payload;
+            setIncomingChallenges((prev) => prev.filter((c) => c.id !== challengeId));
+            setActiveIncomingChallenge((curr) => (curr?.id === challengeId ? null : curr));
             break;
           }
 
@@ -286,6 +367,76 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     setLastError(null);
   }, []);
 
+  const challengeFriend = useCallback(
+    (friendId: string) => {
+      sendRaw({
+        type: "CHALLENGE_FRIEND",
+        payload: { friendId },
+      });
+    },
+    [sendRaw]
+  );
+
+  const acceptChallenge = useCallback(
+    (challengeId: string) => {
+      sendRaw({
+        type: "ACCEPT_CHALLENGE",
+        payload: { challengeId },
+      });
+    },
+    [sendRaw]
+  );
+
+  const declineChallenge = useCallback(
+    (challengeId: string) => {
+      sendRaw({
+        type: "DECLINE_CHALLENGE",
+        payload: { challengeId },
+      });
+      setIncomingChallenges((prev) => prev.filter((c) => c.id !== challengeId));
+      setActiveIncomingChallenge((curr) => (curr?.id === challengeId ? null : curr));
+    },
+    [sendRaw]
+  );
+
+  const cancelChallenge = useCallback(
+    (challengeId: string) => {
+      sendRaw({
+        type: "CANCEL_CHALLENGE",
+        payload: { challengeId },
+      });
+      setOutgoingChallenges((prev) => prev.filter((c) => c.id !== challengeId));
+    },
+    [sendRaw]
+  );
+
+  const dismissChallengeModal = useCallback(() => {
+    setActiveIncomingChallenge(null);
+  }, []);
+
+  const refreshChallenges = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await getPendingChallenges(token);
+      if (res) {
+        setIncomingChallenges(res.incoming || []);
+        setOutgoingChallenges(res.outgoing || []);
+        if (res.incoming && res.incoming.length > 0) {
+          setActiveIncomingChallenge((curr) => curr ?? res.incoming[0] ?? null);
+        }
+      }
+    } catch {
+      // Silently catch background polling errors
+    }
+  }, [token]);
+
+  // Load persistent pending challenges whenever authenticated
+  useEffect(() => {
+    if (token) {
+      refreshChallenges();
+    }
+  }, [token, refreshChallenges]);
+
   return (
     <WebSocketContext.Provider
       value={{
@@ -299,12 +450,21 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         lastAnswerResult,
         gameOverResult,
         lastError,
+        incomingChallenges,
+        outgoingChallenges,
+        activeIncomingChallenge,
         startMatchmaking,
         cancelMatchmaking,
         submitAnswer,
         leaveGame,
         resetGameState,
         clearError,
+        challengeFriend,
+        acceptChallenge,
+        declineChallenge,
+        cancelChallenge,
+        dismissChallengeModal,
+        refreshChallenges,
       }}
     >
       {children}

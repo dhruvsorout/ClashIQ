@@ -3,6 +3,7 @@ import { Space_Grotesk, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/goog
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { WebSocketProvider } from "@/contexts/WebSocketContext";
+import { ChallengeModal } from "@/components/challenge/ChallengeModal";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -45,7 +46,10 @@ export default function RootLayout({
     >
       <body className="min-h-screen bg-[#0B0E14] text-[#F8FAFC] font-sans antialiased selection:bg-[#F59E0B] selection:text-black flex flex-col">
         <AuthProvider>
-          <WebSocketProvider>{children}</WebSocketProvider>
+          <WebSocketProvider>
+            {children}
+            <ChallengeModal />
+          </WebSocketProvider>
         </AuthProvider>
       </body>
     </html>

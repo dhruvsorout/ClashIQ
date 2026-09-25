@@ -18,7 +18,7 @@ import {
 export function Navbar() {
   const pathname = usePathname();
   const { user, token, logout } = useAuth();
-  const { connectionStatus, isConnected } = useWebSocket();
+  const { connectionStatus, isConnected, incomingChallenges } = useWebSocket();
   const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -42,12 +42,14 @@ export function Navbar() {
     };
   }, [token, pathname]);
 
+  const totalBadgeCount = pendingRequestsCount + (incomingChallenges?.length || 0);
+
   const navLinks = [
     { label: "Dashboard", href: "/dashboard" },
     {
       label: "Friends",
       href: "/friends",
-      badge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
+      badge: totalBadgeCount > 0 ? totalBadgeCount : undefined,
     },
     { label: "Profile", href: "/profile" },
   ];
@@ -122,6 +124,20 @@ export function Navbar() {
                   {isConnected ? "ARENA LIVE" : connectionStatus}
                 </span>
               </div>
+
+              {/* Challenge Notification Pill */}
+              {incomingChallenges.length > 0 && (
+                <Link
+                  href="/friends"
+                  className="flex items-center gap-1.5 px-2 py-1 bg-[#F59E0B]/20 border border-[#F59E0B] rounded text-[11px] font-mono text-[#FCD34D] hover:bg-[#F59E0B]/30 transition-colors"
+                  title={`${incomingChallenges.length} incoming challenge${incomingChallenges.length > 1 ? "s" : ""}`}
+                >
+                  <SwordsIcon className="w-3.5 h-3.5 text-[#F59E0B] animate-pulse" />
+                  <span className="font-bold">
+                    {incomingChallenges.length} CHALLENGE{incomingChallenges.length > 1 ? "S" : ""}
+                  </span>
+                </Link>
+              )}
 
               {/* Rating Badge */}
               <RatingBadge rating={user.rating} size="sm" />

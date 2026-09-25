@@ -32,11 +32,43 @@ export const LeaveGameMessageSchema = z.object({
   }),
 });
 
+export const ChallengeFriendMessageSchema = z.object({
+  type: z.literal("CHALLENGE_FRIEND"),
+  payload: z.object({
+    friendId: z.string().uuid("Invalid friendId"),
+  }),
+});
+
+export const AcceptChallengeMessageSchema = z.object({
+  type: z.literal("ACCEPT_CHALLENGE"),
+  payload: z.object({
+    challengeId: z.string().uuid("Invalid challengeId"),
+  }),
+});
+
+export const DeclineChallengeMessageSchema = z.object({
+  type: z.literal("DECLINE_CHALLENGE"),
+  payload: z.object({
+    challengeId: z.string().uuid("Invalid challengeId"),
+  }),
+});
+
+export const CancelChallengeMessageSchema = z.object({
+  type: z.literal("CANCEL_CHALLENGE"),
+  payload: z.object({
+    challengeId: z.string().uuid("Invalid challengeId"),
+  }),
+});
+
 export const ClientMessageSchema = z.discriminatedUnion("type", [
   PlayGameMessageSchema,
   SubmitAnswerMessageSchema,
   CancelMatchmakingMessageSchema,
   LeaveGameMessageSchema,
+  ChallengeFriendMessageSchema,
+  AcceptChallengeMessageSchema,
+  DeclineChallengeMessageSchema,
+  CancelChallengeMessageSchema,
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
@@ -44,6 +76,10 @@ export type PlayGameMessage = z.infer<typeof PlayGameMessageSchema>;
 export type SubmitAnswerMessage = z.infer<typeof SubmitAnswerMessageSchema>;
 export type CancelMatchmakingMessage = z.infer<typeof CancelMatchmakingMessageSchema>;
 export type LeaveGameMessage = z.infer<typeof LeaveGameMessageSchema>;
+export type ChallengeFriendMessage = z.infer<typeof ChallengeFriendMessageSchema>;
+export type AcceptChallengeMessage = z.infer<typeof AcceptChallengeMessageSchema>;
+export type DeclineChallengeMessage = z.infer<typeof DeclineChallengeMessageSchema>;
+export type CancelChallengeMessage = z.infer<typeof CancelChallengeMessageSchema>;
 
 // ==========================================
 // SERVER -> CLIENT MESSAGES (TYPED CONTRACTS)
@@ -100,9 +136,48 @@ export type ServerMessage =
       };
     }
   | {
+      type: "CHALLENGE_RECEIVED";
+      payload: {
+        challengeId: string;
+        challenger: {
+          id: string;
+          username: string;
+          rating: number;
+        };
+        expiresAt: string;
+      };
+    }
+  | {
+      type: "CHALLENGE_ACCEPTED";
+      payload: {
+        challengeId: string;
+        gameId: string;
+      };
+    }
+  | {
+      type: "CHALLENGE_DECLINED";
+      payload: {
+        challengeId: string;
+        userId: string;
+      };
+    }
+  | {
+      type: "CHALLENGE_EXPIRED";
+      payload: {
+        challengeId: string;
+      };
+    }
+  | {
+      type: "CHALLENGE_CANCELLED";
+      payload: {
+        challengeId: string;
+      };
+    }
+  | {
       type: "ERROR";
       payload: {
         code: string;
         message: string;
       };
     };
+

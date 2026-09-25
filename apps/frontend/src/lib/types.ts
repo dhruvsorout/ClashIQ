@@ -67,6 +67,44 @@ export type WsServerMessage =
       };
     }
   | {
+      type: "CHALLENGE_RECEIVED";
+      payload: {
+        challengeId: string;
+        challenger: {
+          id: string;
+          username: string;
+          rating: number;
+        };
+        expiresAt: string;
+      };
+    }
+  | {
+      type: "CHALLENGE_ACCEPTED";
+      payload: {
+        challengeId: string;
+        gameId: string;
+      };
+    }
+  | {
+      type: "CHALLENGE_DECLINED";
+      payload: {
+        challengeId: string;
+        userId: string;
+      };
+    }
+  | {
+      type: "CHALLENGE_EXPIRED";
+      payload: {
+        challengeId: string;
+      };
+    }
+  | {
+      type: "CHALLENGE_CANCELLED";
+      payload: {
+        challengeId: string;
+      };
+    }
+  | {
       type: "ERROR";
       payload: {
         code: string;
@@ -97,7 +135,47 @@ export type WsClientMessage =
       payload: {
         gameId: string;
       };
+    }
+  | {
+      type: "CHALLENGE_FRIEND";
+      payload: {
+        friendId: string;
+      };
+    }
+  | {
+      type: "ACCEPT_CHALLENGE";
+      payload: {
+        challengeId: string;
+      };
+    }
+  | {
+      type: "DECLINE_CHALLENGE";
+      payload: {
+        challengeId: string;
+      };
+    }
+  | {
+      type: "CANCEL_CHALLENGE";
+      payload: {
+        challengeId: string;
+      };
     };
+
+export interface ChallengeUser {
+  id: string;
+  username: string;
+  rating: number;
+  email?: string;
+}
+
+export interface PendingChallenge {
+  id: string;
+  challenger: ChallengeUser;
+  challenged?: ChallengeUser;
+  createdAt: string;
+  expiresAt: string;
+}
+
 
 // HTTP API Data Types
 export interface UserProfile {

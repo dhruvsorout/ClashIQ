@@ -4,6 +4,7 @@ import type {
   FriendRecord,
   GameDetail,
   GameHistoryItem,
+  PendingChallenge,
   PublicUser,
   UserProfile,
   UserStats,
@@ -182,3 +183,18 @@ export async function getGameDetail(token: string, gameId: string) {
     },
   });
 }
+
+// ─── Challenge Endpoints ─────────────────────────────────────────────────────
+
+export async function getPendingChallenges(token: string) {
+  return request<{ incoming: PendingChallenge[]; outgoing: PendingChallenge[] }>(
+    "/api/v1/challenges/pending",
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+}
+

@@ -8,11 +8,28 @@ import { logger } from "../utils/logger.js";
 import { MessageHandler } from "./message.handler.js";
 
 export class ConnectionManager {
+  public static instance: ConnectionManager | null = null;
   private onlineUsers = new Map<string, ConnectedClient>();
   private heartbeatInterval: NodeJS.Timeout | null = null;
 
   constructor(private wss: WebSocketServer) {
+    ConnectionManager.instance = this;
     this.startHeartbeat();
+  }
+
+  /**
+   * Retrieves an active connected client by userId.
+   */
+  public getClient(userId: string): ConnectedClient | undefined {
+    return this.onlineUsers.get(userId);
+  }
+
+  /**
+   * Checks if a user is currently online.
+   */
+  public isUserOnline(userId: string): boolean {
+    const client = this.onlineUsers.get(userId);
+    return Boolean(client && client.ws.readyState === 1);
   }
 
   /**

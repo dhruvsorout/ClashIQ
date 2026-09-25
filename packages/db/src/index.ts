@@ -33,3 +33,5 @@ export const db =
 if (process.env.NODE_ENV !== "PRODUCTION") {
   globalForDb.db = db;
 }
+
+export * from "../generated/prisma/client.js";

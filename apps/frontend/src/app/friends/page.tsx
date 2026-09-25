@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
+import { useWebSocket } from "@/hooks/useWebSocket";
 import { Navbar } from "@/components/layout/Navbar";
 import { RatingBadge } from "@/components/ui/RatingBadge";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -22,6 +23,7 @@ import {
   CheckIcon,
   CrossIcon,
   SearchIcon,
+  SwordsIcon,
   TrashIcon,
   UserCheckIcon,
   UserPlusIcon,
@@ -32,6 +34,14 @@ type TabType = "friends" | "requests" | "search";
 
 export default function FriendsPage() {
   const { token, isLoading: authLoading, user: currentUser } = useAuth();
+  const {
+    challengeFriend,
+    outgoingChallenges,
+    incomingChallenges,
+    acceptChallenge,
+    lastError,
+    clearError,
+  } = useWebSocket();
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<TabType>("friends");
@@ -47,7 +57,26 @@ export default function FriendsPage() {
 
   // Action states
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [challengingId, setChallengingId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  // Sync WebSocket errors to user feedback
+  useEffect(() => {
+    if (lastError) {
+      setFeedback({ type: "error", message: lastError.message });
+      clearError();
+    }
+  }, [lastError, clearError]);
+
+  const handleChallenge = (friendId: string, friendUsername: string) => {
+    if (challengingId === friendId) return;
+    setChallengingId(friendId);
+    challengeFriend(friendId);
+    showNotification("success", `Challenge sent to ${friendUsername}.`);
+    setTimeout(() => {
+      setChallengingId(null);
+    }, 3000);
+  };
 
   // Guard
   useEffect(() => {
@@ -210,6 +239,11 @@ export default function FriendsPage() {
             <span className="px-3 py-1.5 bg-[#141A25] border border-[#222B3B] rounded text-[#94A3B8]">
               <strong className="text-[#F8FAFC]">{friends.length}</strong> FRIENDS
             </span>
+            {incomingChallenges.length > 0 && (
+              <span className="px-3 py-1.5 bg-[#F59E0B]/20 border border-[#F59E0B] rounded text-[#FCD34D] font-bold">
+                {incomingChallenges.length} CHALLENGES
+              </span>
+            )}
             {requests.length > 0 && (
               <span className="px-3 py-1.5 bg-[#7F1D1D]/30 border border-[#DC2626] rounded text-[#FCA5A5] font-bold">
                 {requests.length} INCOMING
@@ -307,47 +341,83 @@ export default function FriendsPage() {
               />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {friends.map((item) => (
-                  <div
-                    key={item.friendshipId}
-                    className="surface-card p-4 flex items-center justify-between gap-4"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 bg-[#1B2332] border border-[#2A364C] flex items-center justify-center rounded text-[#F8FAFC] font-mono font-bold shrink-0">
-                        {item.friend.username.slice(0, 2).toUpperCase()}
+                {friends.map((item) => {
+                  const isChallenging = challengingId === item.friend.id;
+                  const hasPendingOutgoing = outgoingChallenges.some(
+                    (c) => c.challenged?.id === item.friend.id
+                  );
+                  const hasPendingIncoming = incomingChallenges.find(
+                    (c) => c.challenger.id === item.friend.id
+                  );
+
+                  return (
+                    <div
+                      key={item.friendshipId}
+                      className="surface-card p-4 flex items-center justify-between gap-4"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 bg-[#1B2332] border border-[#2A364C] flex items-center justify-center rounded text-[#F8FAFC] font-mono font-bold shrink-0">
+                          {item.friend.username.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <Link
+                            href={`/profile/${item.friend.id}`}
+                            className="font-bold text-sm text-[#F8FAFC] hover:text-[#F59E0B] transition-colors truncate block"
+                          >
+                            {item.friend.username}
+                          </Link>
+                          <span className="text-xs text-[#64748B] font-mono truncate block">
+                            {item.friend.email}
+                          </span>
+                        </div>
                       </div>
-                      <div className="min-w-0">
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {hasPendingIncoming ? (
+                          <button
+                            onClick={() => acceptChallenge(hasPendingIncoming.id)}
+                            className="btn btn-primary text-xs px-2.5 py-1.5 font-mono flex items-center gap-1.5"
+                            title="Accept challenge match"
+                          >
+                            <SwordsIcon className="w-3.5 h-3.5" />
+                            <span>Accept</span>
+                          </button>
+                        ) : hasPendingOutgoing ? (
+                          <span className="text-[11px] font-mono text-[#F59E0B] bg-[#78350F]/40 border border-[#D97706] px-2.5 py-1 rounded flex items-center gap-1.5">
+                            <SwordsIcon className="w-3 h-3 animate-pulse" />
+                            <span>Pending...</span>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleChallenge(item.friend.id, item.friend.username)}
+                            disabled={isChallenging}
+                            className="btn btn-primary text-xs px-2.5 py-1.5 font-mono flex items-center gap-1.5"
+                            title="Challenge to a 1v1 match"
+                          >
+                            <SwordsIcon className="w-3.5 h-3.5" />
+                            <span>{isChallenging ? "Sending..." : "Challenge"}</span>
+                          </button>
+                        )}
+
                         <Link
                           href={`/profile/${item.friend.id}`}
-                          className="font-bold text-sm text-[#F8FAFC] hover:text-[#F59E0B] transition-colors truncate block"
+                          className="btn btn-outline text-xs px-2.5 py-1.5 font-mono"
                         >
-                          {item.friend.username}
+                          Profile
                         </Link>
-                        <span className="text-xs text-[#64748B] font-mono truncate block">
-                          {item.friend.email}
-                        </span>
+                        <button
+                          onClick={() => handleRemove(item.friend.id, item.friend.username)}
+                          disabled={actionLoadingId === item.friend.id}
+                          className="p-2 text-[#94A3B8] hover:text-[#EF4444] hover:bg-[#1B2332] rounded transition-colors"
+                          title="Remove friend"
+                          aria-label="Remove friend"
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Link
-                        href={`/profile/${item.friend.id}`}
-                        className="btn btn-outline text-xs px-2.5 py-1 font-mono"
-                      >
-                        Profile
-                      </Link>
-                      <button
-                        onClick={() => handleRemove(item.friend.id, item.friend.username)}
-                        disabled={actionLoadingId === item.friend.id}
-                        className="p-2 text-[#94A3B8] hover:text-[#EF4444] hover:bg-[#1B2332] rounded transition-colors"
-                        title="Remove friend"
-                        aria-label="Remove friend"
-                      >
-                        <TrashIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

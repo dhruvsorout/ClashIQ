@@ -4,6 +4,7 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
+import { useWebSocket } from "@/hooks/useWebSocket";
 import { Navbar } from "@/components/layout/Navbar";
 import { RatingBadge, getRankTier } from "@/components/ui/RatingBadge";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -19,6 +20,7 @@ import {
   ArrowLeftIcon,
   CheckIcon,
   ShieldIcon,
+  SwordsIcon,
   TrophyIcon,
   UserCheckIcon,
   UserIcon,
@@ -33,20 +35,37 @@ export default function PublicProfilePage({
 }) {
   const { id } = use(params);
   const { user: currentUser, token, isLoading: authLoading } = useAuth();
+  const {
+    challengeFriend,
+    outgoingChallenges,
+    incomingChallenges,
+    acceptChallenge,
+  } = useWebSocket();
   const router = useRouter();
 
   const [profileUser, setProfileUser] = useState<PublicUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Friendship states
+  // Friendship & Challenge states
   const [isFriend, setIsFriend] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
+  const [isChallenging, setIsChallenging] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
 
   const isSelf = currentUser?.id === id;
+
+  const handleChallenge = () => {
+    if (!profileUser || isChallenging) return;
+    setIsChallenging(true);
+    challengeFriend(profileUser.id);
+    setActionFeedback(`Challenge transmitted to ${profileUser.username}.`);
+    setTimeout(() => {
+      setIsChallenging(false);
+    }, 3000);
+  };
 
   // Authentication guard
   useEffect(() => {
@@ -198,10 +217,39 @@ export default function PublicProfilePage({
                         Your Profile Settings
                       </Link>
                     ) : isFriend ? (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#6EE7B7] bg-[#064E3B] border border-[#059669] px-3.5 py-1.5 rounded">
-                        <CheckIcon className="w-4 h-4" />
-                        <span>FRIENDS</span>
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#6EE7B7] bg-[#064E3B] border border-[#059669] px-3 py-1.5 rounded">
+                          <CheckIcon className="w-3.5 h-3.5" />
+                          <span>FRIENDS</span>
+                        </span>
+
+                        {incomingChallenges.find((c) => c.challenger.id === id) ? (
+                          <button
+                            onClick={() => {
+                              const match = incomingChallenges.find((c) => c.challenger.id === id);
+                              if (match) acceptChallenge(match.id);
+                            }}
+                            className="btn btn-primary text-xs py-1.5 px-3.5 font-mono flex items-center gap-1.5"
+                          >
+                            <SwordsIcon className="w-3.5 h-3.5" />
+                            <span>ACCEPT MATCH</span>
+                          </button>
+                        ) : outgoingChallenges.some((c) => c.challenged?.id === id) ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#F59E0B] bg-[#78350F]/50 border border-[#D97706] px-3 py-1.5 rounded">
+                            <SwordsIcon className="w-3.5 h-3.5 animate-pulse" />
+                            <span>CHALLENGE PENDING</span>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={handleChallenge}
+                            disabled={isChallenging}
+                            className="btn btn-primary text-xs py-1.5 px-3.5 font-mono flex items-center gap-1.5"
+                          >
+                            <SwordsIcon className="w-3.5 h-3.5" />
+                            <span>{isChallenging ? "SENDING..." : "CHALLENGE"}</span>
+                          </button>
+                        )}
+                      </div>
                     ) : isPending || requestSent ? (
                       <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#FCD34D] bg-[#78350F] border border-[#D97706] px-3.5 py-1.5 rounded">
                         <UserCheckIcon className="w-4 h-4" />

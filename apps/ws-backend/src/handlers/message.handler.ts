@@ -1,4 +1,5 @@
 import type { RawData } from "ws";
+import { challengeService } from "../services/challenge.service.js";
 import { gameService } from "../services/game.service.js";
 import { matchmakingService } from "../services/matchmaking.service.js";
 import {
@@ -114,6 +115,66 @@ export class MessageHandler {
       case "LEAVE_GAME": {
         const { gameId } = message.payload;
         await gameService.leaveGame(user.id, gameId);
+        break;
+      }
+
+      case "CHALLENGE_FRIEND": {
+        const { friendId } = message.payload;
+        const result = await challengeService.createChallenge(client, friendId);
+        if (!result.success) {
+          this.send(ws, {
+            type: "ERROR",
+            payload: {
+              code: result.code || "CHALLENGE_FAILED",
+              message: result.message || "Failed to send challenge",
+            },
+          });
+        }
+        break;
+      }
+
+      case "ACCEPT_CHALLENGE": {
+        const { challengeId } = message.payload;
+        const result = await challengeService.acceptChallenge(user.id, challengeId);
+        if (!result.success) {
+          this.send(ws, {
+            type: "ERROR",
+            payload: {
+              code: result.code || "ACCEPT_CHALLENGE_FAILED",
+              message: result.message || "Failed to accept challenge",
+            },
+          });
+        }
+        break;
+      }
+
+      case "DECLINE_CHALLENGE": {
+        const { challengeId } = message.payload;
+        const result = await challengeService.declineChallenge(user.id, challengeId);
+        if (!result.success) {
+          this.send(ws, {
+            type: "ERROR",
+            payload: {
+              code: result.code || "DECLINE_CHALLENGE_FAILED",
+              message: result.message || "Failed to decline challenge",
+            },
+          });
+        }
+        break;
+      }
+
+      case "CANCEL_CHALLENGE": {
+        const { challengeId } = message.payload;
+        const result = await challengeService.cancelChallenge(user.id, challengeId);
+        if (!result.success) {
+          this.send(ws, {
+            type: "ERROR",
+            payload: {
+              code: result.code || "CANCEL_CHALLENGE_FAILED",
+              message: result.message || "Failed to cancel challenge",
+            },
+          });
+        }
         break;
       }
 

@@ -5,6 +5,7 @@ import { authRouter } from "./routes/auth.routes.js";
 import { userRouter } from "./routes/user.routes.js";
 import { friendRouter } from "./routes/friend.routes.js";
 import { gameRouter } from "./routes/game.routes.js";
+import { challengeRouter } from "./routes/challenge.routes.js";
 import { globalErrorHandler } from "./middleware/error.middleware.js";
 
 const app = express();
@@ -17,6 +18,7 @@ app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/friends", friendRouter);
 app.use("/api/v1/games", gameRouter);
+app.use("/api/v1/challenges", challengeRouter);
 
 // 404 handler for unknown routes
 app.use((_req, res) => {
