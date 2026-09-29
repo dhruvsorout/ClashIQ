@@ -32,9 +32,11 @@ export function ChallengeModal() {
   // Expiration countdown calculation
   useEffect(() => {
     if (!activeIncomingChallenge) {
-      setSecondsRemaining(null);
-      setIsAccepting(false);
-      return;
+      const timer = setTimeout(() => {
+        setSecondsRemaining(null);
+        setIsAccepting(false);
+      }, 0);
+      return () => clearTimeout(timer);
     }
 
     const expiresAtMs = new Date(activeIncomingChallenge.expiresAt).getTime();

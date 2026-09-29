@@ -1,24 +1,35 @@
 import React from "react";
 import { TrophyIcon } from "./Icons";
+import { getLeagueFromRating, UNRANKED_TIER } from "@/lib/leagueConfig";
 
-export function getRankTier(rating: number | null) {
-  const r = rating ?? 1000;
-  if (r >= 1800) return { name: "Grandmaster", color: "text-[#E0E7FF]", bg: "bg-[#312E81]", border: "border-[#4F46E5]" };
-  if (r >= 1500) return { name: "Master", color: "text-[#C7D2FE]", bg: "bg-[#1E1B4B]", border: "border-[#4338CA]" };
-  if (r >= 1300) return { name: "Specialist", color: "text-[#FCD34D]", bg: "bg-[#451A03]", border: "border-[#B45309]" };
-  if (r >= 1100) return { name: "Challenger", color: "text-[#93C5FD]", bg: "bg-[#172554]", border: "border-[#1D4ED8]" };
-  return { name: "Novice", color: "text-[#94A3B8]", bg: "bg-[#1E293B]", border: "border-[#334155]" };
+export function getRankTier(rating: number | null, isUnranked = false) {
+  if (isUnranked) {
+    return {
+      name: UNRANKED_TIER.name,
+      color: UNRANKED_TIER.badgeColor,
+      bg: UNRANKED_TIER.badgeBg,
+      border: UNRANKED_TIER.badgeBorder,
+    };
+  }
+  const league = getLeagueFromRating(rating);
+  return {
+    name: league.name,
+    color: league.badgeColor,
+    bg: league.badgeBg,
+    border: league.badgeBorder,
+  };
 }
 
 interface RatingBadgeProps {
   rating: number | null;
   showTier?: boolean;
+  isUnranked?: boolean;
   size?: "sm" | "md" | "lg";
 }
 
-export function RatingBadge({ rating, showTier = false, size = "md" }: RatingBadgeProps) {
+export function RatingBadge({ rating, showTier = false, isUnranked = false, size = "md" }: RatingBadgeProps) {
   const val = rating ?? 1000;
-  const tier = getRankTier(val);
+  const tier = getRankTier(val, isUnranked);
 
   if (size === "sm") {
     return (

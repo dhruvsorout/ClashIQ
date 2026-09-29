@@ -46,6 +46,7 @@ export function Navbar() {
 
   const navLinks = [
     { label: "Dashboard", href: "/dashboard" },
+    { label: "Rating", href: "/rating" },
     {
       label: "Friends",
       href: "/friends",
@@ -173,6 +174,12 @@ export function Navbar() {
             </>
           ) : (
             <div className="flex items-center gap-2">
+              <Link
+                href="/rating"
+                className="text-xs font-semibold text-[#94A3B8] hover:text-[#F8FAFC] px-3 py-1.5 transition-colors"
+              >
+                Rating
+              </Link>
               <Link
                 href="/auth"
                 className="text-xs font-semibold text-[#94A3B8] hover:text-[#F8FAFC] px-3 py-1.5 transition-colors"

@@ -63,8 +63,12 @@ export default function FriendsPage() {
   // Sync WebSocket errors to user feedback
   useEffect(() => {
     if (lastError) {
-      setFeedback({ type: "error", message: lastError.message });
-      clearError();
+      const err = lastError;
+      const timer = setTimeout(() => {
+        setFeedback({ type: "error", message: err.message });
+        clearError();
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [lastError, clearError]);
 

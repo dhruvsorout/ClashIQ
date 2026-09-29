@@ -433,7 +433,10 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   // Load persistent pending challenges whenever authenticated
   useEffect(() => {
     if (token) {
-      refreshChallenges();
+      const timer = setTimeout(() => {
+        refreshChallenges();
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [token, refreshChallenges]);
 
